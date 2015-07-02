@@ -1,0 +1,42 @@
+// ConsoleServer.idl : IDL source for ConsoleServer
+//
+
+// This file will be processed by the MIDL tool to
+// produce the type library (ConsoleServer.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(C9ABBC7D-280C-4A8C-B6FE-EC95FD50E44A),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IExec : IDispatch{
+	[] HRESULT StartProcess([in] BSTR commandLine, [out] BYTE* success, [out] LONGLONG* error);
+	[] HRESULT ReadStdout([out] BSTR* data);
+	[] HRESULT ReadStderr([out] BSTR* data);
+	[] HRESULT WriteStdin([in] BSTR data);
+	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
+};
+
+
+
+[
+	uuid(B6EBFBF7-CD9F-4172-92F8-EE7D12CFC703),
+	version(1.0),
+]
+library ConsoleServerLib
+{
+	importlib("stdole2.tlb");
+	[
+		uuid(696511A9-45A2-4CFB-834F-CD134A7FFF5A)		
+	]
+	coclass Exec
+	{
+		[default] interface IExec;
+	};
+};
+
