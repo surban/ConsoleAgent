@@ -4,7 +4,7 @@
 #include "stdafx.h"
 #include "resource.h"
 #include "ConsoleServer_i.h"
-
+#include "Timers.h"
 
 using namespace ATL;
 
@@ -19,10 +19,9 @@ public :
 CConsoleServerModule _AtlModule;
 
 
-
 INITIALIZE_EASYLOGGINGPP;
 
-//
+
 extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, 
 								LPTSTR /*lpCmdLine*/, int nShowCmd)
 {
@@ -33,7 +32,22 @@ extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstan
 	el::Loggers::reconfigureAllLoggers(logConf);
 
 	LOG(INFO) << "ConsoleServer startup";
+
+	// allocate console
+	//BOOL success = AllocConsole();
+	//if (!success)
+	//{
+	//	LOG(ERROR) << "Failed to allocate console";
+	//	abort();
+	//}
+	//ShowWindow(GetConsoleWindow(), SW_HIDE);
+
+	// register timer
+	StartThreadTimer(1000);
+
+	// main loop
 	int retval = _AtlModule.WinMain(nShowCmd);
+
 	LOG(INFO) << "ConsoleServer shutdown";
 	return retval;
 }

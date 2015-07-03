@@ -7,6 +7,8 @@
 import "oaidl.idl";
 import "ocidl.idl";
 
+typedef enum {CONTROLEVENT_C, CONTROLEVENT_BREAK} ControlEvent;
+
 [
 	object,
 	uuid(C9ABBC7D-280C-4A8C-B6FE-EC95FD50E44A),
@@ -16,10 +18,12 @@ import "ocidl.idl";
 ]
 interface IExec : IDispatch{
 	[] HRESULT StartProcess([in] BSTR commandLine, [out] BYTE* success, [out] LONGLONG* error);
-	[] HRESULT ReadStdout([out] BSTR* data);
-	[] HRESULT ReadStderr([out] BSTR* data);
-	[] HRESULT WriteStdin([in] BSTR data);
+	[] HRESULT ReadStdout([out] BSTR* data, [out] long *dataLength);
+	[] HRESULT ReadStderr([out] BSTR* data, [out] long *dataLength);
+	[] HRESULT WriteStdin([in] BSTR data, [in] long dataLength);
 	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
+	[] HRESULT SendControl(ControlEvent evt);
+	[] HRESULT Ping();
 };
 
 

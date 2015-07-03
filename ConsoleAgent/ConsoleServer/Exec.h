@@ -5,7 +5,7 @@
 
 #include "ConsoleServer_i.h"
 
-#include "PipeWriter.h"
+#include "PipeTools.h"
 
 #include <memory>
 
@@ -25,22 +25,16 @@ class ATL_NO_VTABLE CExec :
 	public IDispatchImpl<IExec, &IID_IExec, &LIBID_ConsoleServerLib, /*wMajor =*/ 1, /*wMinor =*/ 0>
 {
 public:
-	CExec()
-	{
-		processStarted = false;
-	}
 
-DECLARE_REGISTRY_RESOURCEID(IDR_EXEC)
-
-
-BEGIN_COM_MAP(CExec)
-	COM_INTERFACE_ENTRY(IExec)
-	COM_INTERFACE_ENTRY(IDispatch)
-END_COM_MAP()
-
-
-
+	DECLARE_REGISTRY_RESOURCEID(IDR_EXEC)
+	BEGIN_COM_MAP(CExec)
+		COM_INTERFACE_ENTRY(IExec)
+		COM_INTERFACE_ENTRY(IDispatch)
+	END_COM_MAP()
 	DECLARE_PROTECT_FINAL_CONSTRUCT()
+
+	CExec();
+	virtual ~CExec();
 
 	HRESULT FinalConstruct()
 	{
@@ -54,12 +48,20 @@ END_COM_MAP()
 public:
 
 	STDMETHOD(StartProcess)(BSTR commandLine, BYTE *success, LONGLONG* error);
-	STDMETHOD(ReadStdout)(BSTR* data);
-	STDMETHOD(ReadStderr)(BSTR* data);
-	STDMETHOD(WriteStdin)(BSTR data);
+	STDMETHOD(ReadStdout)(BSTR* data, long *dataLength);
+	STDMETHOD(ReadStderr)(BSTR* data, long *dataLength);
+	STDMETHOD(WriteStdin)(BSTR data, long dataLength);
 	STDMETHOD(GetTerminationStatus)(BYTE* hasTerminated, LONGLONG* exitCode);
+	STDMETHOD(SendControl)(ControlEvent evt);
+	STDMETHOD(Ping)();
 
 protected:
+
+	void TimerCallback();
+	void KillProcess();
+
+protected:
+	const int MAX_PING_TIME = 10;
 
 	bool processStarted;
 	
@@ -76,6 +78,9 @@ protected:
 	HANDLE mStdinWrite;
 
 	std::unique_ptr<PipeWriter> mStdinWriter;
+
+	clock_t mLastPingTime;
+	bool mProcessKilled;
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(Exec), CExec)

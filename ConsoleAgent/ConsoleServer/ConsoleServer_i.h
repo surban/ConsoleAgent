@@ -4,7 +4,7 @@
 
 
  /* File created by MIDL compiler version 8.00.0603 */
-/* at Thu Jul 02 15:31:00 2015
+/* at Fri Jul 03 21:25:25 2015
  */
 /* Compiler settings for ConsoleServer.idl:
     Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0603 
@@ -73,6 +73,21 @@ extern "C"{
 #endif 
 
 
+/* interface __MIDL_itf_ConsoleServer_0000_0000 */
+/* [local] */ 
+
+typedef /* [public][public] */ 
+enum __MIDL___MIDL_itf_ConsoleServer_0000_0000_0001
+    {
+        CONTROLEVENT_C	= 0,
+        CONTROLEVENT_BREAK	= ( CONTROLEVENT_C + 1 ) 
+    } 	ControlEvent;
+
+
+
+extern RPC_IF_HANDLE __MIDL_itf_ConsoleServer_0000_0000_v0_0_c_ifspec;
+extern RPC_IF_HANDLE __MIDL_itf_ConsoleServer_0000_0000_v0_0_s_ifspec;
+
 #ifndef __IExec_INTERFACE_DEFINED__
 #define __IExec_INTERFACE_DEFINED__
 
@@ -94,17 +109,25 @@ EXTERN_C const IID IID_IExec;
             /* [out] */ LONGLONG *error) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE ReadStdout( 
-            /* [out] */ BSTR *data) = 0;
+            /* [out] */ BSTR *data,
+            /* [out] */ long *dataLength) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE ReadStderr( 
-            /* [out] */ BSTR *data) = 0;
+            /* [out] */ BSTR *data,
+            /* [out] */ long *dataLength) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE WriteStdin( 
-            /* [in] */ BSTR data) = 0;
+            /* [in] */ BSTR data,
+            /* [in] */ long dataLength) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE GetTerminationStatus( 
             /* [out] */ BYTE *hasTerminated,
             /* [out] */ LONGLONG *exitCode) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE SendControl( 
+            ControlEvent evt) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE Ping( void) = 0;
         
     };
     
@@ -172,20 +195,30 @@ EXTERN_C const IID IID_IExec;
         
         HRESULT ( STDMETHODCALLTYPE *ReadStdout )( 
             IExec * This,
-            /* [out] */ BSTR *data);
+            /* [out] */ BSTR *data,
+            /* [out] */ long *dataLength);
         
         HRESULT ( STDMETHODCALLTYPE *ReadStderr )( 
             IExec * This,
-            /* [out] */ BSTR *data);
+            /* [out] */ BSTR *data,
+            /* [out] */ long *dataLength);
         
         HRESULT ( STDMETHODCALLTYPE *WriteStdin )( 
             IExec * This,
-            /* [in] */ BSTR data);
+            /* [in] */ BSTR data,
+            /* [in] */ long dataLength);
         
         HRESULT ( STDMETHODCALLTYPE *GetTerminationStatus )( 
             IExec * This,
             /* [out] */ BYTE *hasTerminated,
             /* [out] */ LONGLONG *exitCode);
+        
+        HRESULT ( STDMETHODCALLTYPE *SendControl )( 
+            IExec * This,
+            ControlEvent evt);
+        
+        HRESULT ( STDMETHODCALLTYPE *Ping )( 
+            IExec * This);
         
         END_INTERFACE
     } IExecVtbl;
@@ -226,17 +259,23 @@ EXTERN_C const IID IID_IExec;
 #define IExec_StartProcess(This,commandLine,success,error)	\
     ( (This)->lpVtbl -> StartProcess(This,commandLine,success,error) ) 
 
-#define IExec_ReadStdout(This,data)	\
-    ( (This)->lpVtbl -> ReadStdout(This,data) ) 
+#define IExec_ReadStdout(This,data,dataLength)	\
+    ( (This)->lpVtbl -> ReadStdout(This,data,dataLength) ) 
 
-#define IExec_ReadStderr(This,data)	\
-    ( (This)->lpVtbl -> ReadStderr(This,data) ) 
+#define IExec_ReadStderr(This,data,dataLength)	\
+    ( (This)->lpVtbl -> ReadStderr(This,data,dataLength) ) 
 
-#define IExec_WriteStdin(This,data)	\
-    ( (This)->lpVtbl -> WriteStdin(This,data) ) 
+#define IExec_WriteStdin(This,data,dataLength)	\
+    ( (This)->lpVtbl -> WriteStdin(This,data,dataLength) ) 
 
 #define IExec_GetTerminationStatus(This,hasTerminated,exitCode)	\
     ( (This)->lpVtbl -> GetTerminationStatus(This,hasTerminated,exitCode) ) 
+
+#define IExec_SendControl(This,evt)	\
+    ( (This)->lpVtbl -> SendControl(This,evt) ) 
+
+#define IExec_Ping(This)	\
+    ( (This)->lpVtbl -> Ping(This) ) 
 
 #endif /* COBJMACROS */
 

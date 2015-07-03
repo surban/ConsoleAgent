@@ -2,45 +2,53 @@
 
 #include "stdafx.h"
 #include "Exec.h"
+#include "utils.h"
+#include "Timers.h"
 
-
-_bstr_t VectorToBstr(const std::vector<char> &vec)
-{
-	BSTR bstr = SysAllocStringByteLen(vec.data(), (UINT)vec.size());
-	return _bstr_t(bstr, false);
-}
-
-std::vector<char> BstrToVector(const _bstr_t &bstr)
-{
-	unsigned int len = bstr.length();
-	std::vector<char> vec(len);
-	// casting to non-const is ok, because we just copy the data from the BSTR
-	memcpy(vec.data(), ((_bstr_t)bstr).GetBSTR(), len);
-	return vec;
-}
-
-std::vector<char> ReadFromPipe(HANDLE hPipe, const size_t maxLength = 10000)
-{
-	std::vector<char> empty;
-
-	DWORD bytesAvail;
-	if (!PeekNamedPipe(hPipe, NULL, 0, NULL, &bytesAvail, NULL))
-		return empty;
-	if (bytesAvail == 0)
-		return empty;
-
-	std::vector<char> buffer(min(bytesAvail, maxLength));
-	DWORD bytesRead;
-	if (!ReadFile(hPipe, buffer.data(), (DWORD)buffer.size(), &bytesRead, NULL))
-		return empty;
-	buffer.resize(bytesRead);
-
-	return buffer;
-}
-
-
+#include <thread>
 
 // CExec
+
+CExec::CExec()
+{
+	processStarted = false;
+	mProcessKilled = false;
+
+	Ping();
+	RegisterTimer(this, std::bind(&CExec::TimerCallback, this));
+
+	LOG(INFO) << "CExec instantiated on thread " << std::this_thread::get_id();
+}
+
+CExec::~CExec()
+{
+	KillProcess();
+	DeregisterTimer(this);
+	mStdinWriter = nullptr;
+
+	if (processStarted)
+	{
+		CloseHandle(mProcess);
+		CloseHandle(hThread);
+		CloseHandle(mStdoutRead);
+		CloseHandle(mStderrRead);
+		CloseHandle(mStdinWrite);
+	}
+
+	LOG(INFO) << "CExec destructed";
+}
+
+void CExec::TimerCallback()
+{
+	// check if client is alive
+	if ((clock() - mLastPingTime) > MAX_PING_TIME * CLOCKS_PER_SEC && !mProcessKilled)
+	{
+		LOG(WARNING) << "client did not ping -- terminating process";
+		KillProcess();
+	}
+
+	//LOG(INFO) << "timer callback for IExec " << this;
+}
 
 STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
 {
@@ -77,6 +85,8 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 	startupInfo.hStdError = mStderrWrite;
 	startupInfo.hStdInput = mStdinRead;
 	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+	startupInfo.wShowWindow = SW_HIDE;
+	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
 
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcess(
@@ -84,8 +94,8 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 		sCommandLine,
 		NULL,
 		NULL,
-		FALSE,
-		0,
+		TRUE,
+		CREATE_NEW_CONSOLE,
 		NULL,
 		NULL,
 		&startupInfo,
@@ -108,29 +118,38 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 	dwThreadId = processInformation.dwThreadId;
 	LOG(INFO) << "Started process with id " << dwProcessId;
 
+	//CloseHandle(mStdoutWrite);
+
 	// setup stdin pipe writer
 	mStdinWriter = std::make_unique<PipeWriter>(mStdinWrite);
 
 	*success = TRUE;
 	*error = 0;
+
+	//Sleep(10000);
+
 	return S_OK;
 }
 
-STDMETHODIMP CExec::ReadStdout(BSTR* data)
+STDMETHODIMP CExec::ReadStdout(BSTR* data, long *dataLength)
 {
-	*data = VectorToBstr(ReadFromPipe(mStdoutRead));
+	auto buf = ReadFromPipe(mStdoutRead);
+	*data = VectorToBstr(buf);
+	*dataLength = (long)buf.size();
 	return S_OK;
 }
 
-STDMETHODIMP CExec::ReadStderr(BSTR* data)
+STDMETHODIMP CExec::ReadStderr(BSTR* data, long *dataLength)
 {
-	*data = VectorToBstr(ReadFromPipe(mStderrRead));
+	auto buf = ReadFromPipe(mStderrRead);
+	*data = VectorToBstr(buf);
+	*dataLength = (long)buf.size();
 	return S_OK;
 }
 
-STDMETHODIMP CExec::WriteStdin(BSTR data)
+STDMETHODIMP CExec::WriteStdin(BSTR data, long dataLength)
 {
-	std::vector<char> vData = BstrToVector(_bstr_t(data, true));
+	auto vData = BstrToVector<char>(data, dataLength);
 	mStdinWriter->Write(vData);
 	return S_OK;
 }
@@ -146,6 +165,8 @@ STDMETHODIMP CExec::GetTerminationStatus(BYTE* hasTerminated, LONGLONG* exitCode
 		if (!GetExitCodeProcess(mProcess, &dwExitCode))
 			return E_FAIL;
 		*exitCode = dwExitCode;
+
+		LOG(INFO) << "Process has terminated with exit code " << dwExitCode;
 		return S_OK;
 	}
 	else if (status == WAIT_TIMEOUT)
@@ -159,4 +180,60 @@ STDMETHODIMP CExec::GetTerminationStatus(BYTE* hasTerminated, LONGLONG* exitCode
 		return E_FAIL;
 }
 
+// do nothing handler for console events
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+	return TRUE;
+}
 
+STDMETHODIMP CExec::SendControl(ControlEvent evt)
+{
+	// we must attach to the process' console to send the event
+	if (!AttachConsole(dwProcessId))
+	{
+		LOG(WARNING) << "Attach to process " << dwProcessId << " console failed";
+		return S_OK;
+	}
+
+	// register our own handler so that we do not get terminated ourselves
+	SetConsoleCtrlHandler(&CtrlHandler, TRUE);
+
+	// send event	
+	switch (evt)
+	{
+	case CONTROLEVENT_C:
+		LOG(INFO) << "Sending CTRL+C event";
+		GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
+		break;
+	case CONTROLEVENT_BREAK:
+		LOG(INFO) << "Sending CTRL+BREAK event";
+		GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, 0);
+		break;
+	default:
+		LOG(ERROR) << "Unknown event to send specified";
+	}
+
+	// detach from process' console
+	if (!FreeConsole())
+		LOG(WARNING) << "Detach from console failed";
+
+	return S_OK;
+}
+
+STDMETHODIMP CExec::Ping()
+{
+	mLastPingTime = clock();
+	return S_OK;
+}
+
+void CExec::KillProcess()
+{
+	if (!processStarted || mProcessKilled)
+		return;
+
+	LOG(INFO) << "Terminating process " << dwProcessId;
+	if (!TerminateProcess(mProcess, 0))
+		LOG(WARNING) << "Process termination failed";
+
+	mProcessKilled = true;
+}
