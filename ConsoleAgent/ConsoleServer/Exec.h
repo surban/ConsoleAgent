@@ -86,6 +86,7 @@ protected:
 	bool mProcessKilled;
 
 	CHandle mPreparePipe;
+	CHandle mPrepareReleaseEvent;
 	std::wstring mProcessDesktopName;
 };
 

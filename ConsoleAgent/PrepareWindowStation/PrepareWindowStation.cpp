@@ -43,14 +43,15 @@ BOOL AddTheAceDesktop(
 int _tmain(int argc, _TCHAR* argv[])
 {
 	// handle command line arguments
-	if (argc != 4)
+	if (argc != 5)
 	{
-		std::wcerr << "Usage: " << argv[0] << " <SID> <DesktopName> <Pipe>" << std::endl;
+		std::wcerr << "Usage: " << argv[0] << " <SID> <DesktopName> <ReadyEvent> <ReleaseEvent>" << std::endl;
 		return 1;
 	}
 	LPCTSTR psSid = argv[1];
 	LPCTSTR psDesktopName = argv[2];
-	LPCTSTR psPipeName = argv[3];
+	LPCTSTR psReadyEventName = argv[3];
+	LPCTSTR psReleaseEventName = argv[4];
 
 	// parse sid
 	PSID psid;
@@ -91,33 +92,30 @@ int _tmain(int argc, _TCHAR* argv[])
 			return 6;
 	}
 
+	// raise ready event
 	std::wcout << "Desktop created." << std::endl;
-	std::wcout << "Connecting to pipe " << psPipeName << std::endl;
-
-	// connect to pipe to signal that desktop was created
-	HANDLE hPipe = CreateNamedPipe(psPipeName, PIPE_ACCESS_DUPLEX,
-		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-		PIPE_UNLIMITED_INSTANCES, 100, 100, 0, NULL);
-	if (hPipe == INVALID_HANDLE_VALUE)
+	HANDLE hReadyEvent = OpenEvent(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, psReadyEventName);
+	if (hReadyEvent == NULL)
 	{
-		std::wcerr << "Pipe connection failed: 0x" << std::hex << GetLastError() << std::endl;
-		while (true);
+		std::wcerr << "Failed to open ready event.";
 		return 7;
 	}
+	SetEvent(hReadyEvent);
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-	std::wcout << "Waiting for termination." << std::endl;
-
-	// wait for termination signal
-	const size_t bufferSize = 10;
-	char *buffer = new char[bufferSize];
-	DWORD bytesRead;
-	if (!ReadFile(hPipe, buffer, bufferSize, &bytesRead, NULL))
+	// wait for release event
+	const int checkInterval = 10000;
+	std::wcout << "Waiting for release event." << std::endl;
+	HANDLE hReleaseEvent = OpenEvent(EVENT_MODIFY_STATE | SYNCHRONIZE, FALSE, psReleaseEventName);
+	if (hReleaseEvent == NULL)
 	{
-		std::wcerr << "ReadFile on pipe failed: 0x" << std::hex << GetLastError() << std::endl;
-		while (true);
+		std::wcerr << "Failed to open release event.";
 		return 8;
 	}
+	while (WaitForSingleObject(hReleaseEvent, checkInterval) != WAIT_OBJECT_0)
+	{
+
+	}
+	
 
 	// free the buffer for the logon sid
 	LocalFree(psid);

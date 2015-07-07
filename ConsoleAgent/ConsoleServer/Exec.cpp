@@ -37,6 +37,8 @@ CExec::~CExec()
 		CloseHandle(mStdinWrite);
 	}
 
+	ReleaseProcessDesktop();
+
 	LOG(INFO) << "CExec destructed";
 }
 
@@ -137,38 +139,10 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 		return E_FAIL;
 	}
 
-	//// get groups
-	//GetTokenInformation(hPrimaryToken, TokenGroups, NULL, 0, &dwLength);
-	//TOKEN_GROUPS *tgGroups = (TOKEN_GROUPS *)malloc(dwLength);
-	//if (!GetTokenInformation(hPrimaryToken, TokenGroups, tgGroups, dwLength, &dwLength))
-	//{
-	//	*error = GetLastError();
-	//	LOG(WARNING) << "GetTokenInformation failed.";
-	//	return E_FAIL;
-	//}
-
-	//LOG(INFO) << "Group count: " << std::dec << tgGroups->GroupCount;
-	//for (size_t i = 0; i < tgGroups->GroupCount; i++)
-	//{
-	//	SID_AND_ATTRIBUTES saaGroup = tgGroups->Groups[i];
-	//	LPTSTR sSid;
-	//	ConvertSidToStringSid(saaGroup.Sid, &sSid);
-	//	LOG(INFO) << "Group membership: " << sSid << " Attributes: " << std::hex << saaGroup.Attributes;
-	//	LocalFree(sSid);
-	//}
-
-
-	//// set token groups
-	//if (!SetTokenInformation(hPrimaryToken, TokenGroups, tgGroups, dwLength))
-	//{
-	//	*error = GetLastError();
-	//	LOG(WARNING) << "SetTokenInformation failed.";
-	//	return E_FAIL;
-	//}
-
 	// start process
 	LOG(INFO) << "Starting process with command line: " << sCommandLine;
 
+	wstring wsWinstaAndDesktop = L"WinSta0\\" + mProcessDesktopName;
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
 	startupInfo.cb = sizeof(STARTUPINFO);
@@ -178,8 +152,7 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
 	startupInfo.wShowWindow = SW_HIDE;
 	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
-	//startupInfo.lpDesktop = L"WinSta0\\Default";
-	startupInfo.lpDesktop = L"WinSta0\\abc";
+	startupInfo.lpDesktop = const_cast<LPWSTR>(wsWinstaAndDesktop.c_str());
 
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(
@@ -220,89 +193,6 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 
 	return S_OK;
 }
-
-/*
-STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
-{
-	_bstr_t sCommandLine(commandLine, true);
-
-	// create pipes for stdin, stdout, stderr
-	SECURITY_ATTRIBUTES saAttr;
-	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-	saAttr.bInheritHandle = TRUE;
-	saAttr.lpSecurityDescriptor = NULL;
-
-	if (!CreatePipe(&mStdoutRead, &mStdoutWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStdoutRead, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
-
-	if (!CreatePipe(&mStderrRead, &mStderrWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStderrRead, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
-
-	if (!CreatePipe(&mStdinRead, &mStdinWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStdinWrite, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
-
-	// start process
-	LOG(INFO) << "Starting process with command line: " << sCommandLine;
-	
-	STARTUPINFO startupInfo;
-	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
-	startupInfo.cb = sizeof(STARTUPINFO);
-	startupInfo.hStdOutput = mStdoutWrite;
-	startupInfo.hStdError = mStderrWrite;
-	startupInfo.hStdInput = mStdinRead;
-	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
-	startupInfo.wShowWindow = SW_HIDE;
-	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
-
-	PROCESS_INFORMATION processInformation;
-	BOOL status = CreateProcess(
-		NULL,
-		sCommandLine,
-		NULL,
-		NULL,
-		TRUE,
-		CREATE_NEW_CONSOLE,
-		NULL,
-		NULL,
-		&startupInfo,
-		&processInformation);
-
-	if (!status)
-	{
-		// start failed: return error
-		*success = FALSE;
-		*error = GetLastError();
-		LOG(INFO) << "Starting process failed with error 0x" << std::hex << *error;
-		return S_OK;
-	}
-
-	// start succeeded
-	processStarted = true;
-	mProcess = processInformation.hProcess;
-	hThread = processInformation.hThread;
-	dwProcessId = processInformation.dwProcessId;
-	dwThreadId = processInformation.dwThreadId;
-	LOG(INFO) << "Started process with id " << dwProcessId;
-
-	//CloseHandle(mStdoutWrite);
-
-	// setup stdin pipe writer
-	mStdinWriter = std::make_unique<PipeWriter>(mStdinWrite);
-
-	*success = TRUE;
-	*error = 0;
-
-	//Sleep(10000);
-
-	return S_OK;
-}
-*/
 
 STDMETHODIMP CExec::ReadStdout(BSTR* data, long *dataLength)
 {
@@ -443,7 +333,6 @@ void CExec::CreateProcessDesktop()
 {
 	LOG(INFO) << "Creating process desktop";
 
-
 	// obtain own sid
 	CAccessToken catOwnToken;
 	catOwnToken.GetProcessToken(TOKEN_READ | TOKEN_QUERY);
@@ -480,49 +369,26 @@ void CExec::CreateProcessDesktop()
 	csdEvent.SetDacl(cdEvent);
 	CSecurityAttributes csaEvent(csdEvent);
 
-
 	// create events
 	wstring wssUuid = GenerateUuidString();
 
 	wstring wssReadyEventName = L"Global\\PrepareWindowStation_Ready_" + wssUuid;
 	HANDLE hReadyEvent = CreateEvent(&csaEvent, TRUE, FALSE, wssReadyEventName.c_str());
-	
+	CHandle chReadyEvent(hReadyEvent);
+
 	wstring wssReleaseEventName = L"Global\\PrepareWindowStation_Release_" + wssUuid;
 	HANDLE hReleaseEvent = CreateEvent(&csaEvent, TRUE, FALSE, wssReleaseEventName.c_str());
-
-	// create named pipe
-	LOG(INFO) << "Creating pipe.";
-	wstring wssPipename = L"\\\\.\\pipe\\ConsoleServer_PrepareWindowStation_" + GenerateUuidString();
-
-	CDacl cdPipe;
-	cdPipe.AddAllowedAce(csClientSid, GENERIC_ALL, 0);
-	cdPipe.AddAllowedAce(csOwnSid, GENERIC_ALL, 0);
-
-	CSecurityDesc csdPipe;
-	csdPipe.SetOwner(csOwnSid);
-	//csdPipe.SetGroup(CSid());
-	csdPipe.SetDacl(cdPipe);
-
-	CSecurityAttributes csaPipe(csdPipe);
-
-	HANDLE hPreparePipe = CreateNamedPipe(wssPipename.c_str(), PIPE_ACCESS_DUPLEX,
-		PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT, PIPE_UNLIMITED_INSTANCES, 100, 100, 0, &csaPipe);
-	if (hPreparePipe == INVALID_HANDLE_VALUE)
-	{
-		LOG(ERROR) << "Creation of PrepareWindowStation pipe failed.";
-		return;
-	}
-	mPreparePipe = CHandle(hPreparePipe);
-	LOG(INFO) << "Pipe created: " << wssPipename;
-
-
+	mPrepareReleaseEvent = CHandle(hReleaseEvent);
+	
 	// execute PrepareWindowStation on console session
 	wstring wsCmdLine = L"PrepareWindowStation.exe " + 
-		wsClientSid + L" " + mProcessDesktopName + L" " + wssPipename;
+		wsClientSid + L" " + mProcessDesktopName + L" " + wssReadyEventName + L" " + wssReleaseEventName;
 
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
 	startupInfo.cb = sizeof(STARTUPINFO);
+	startupInfo.wShowWindow = SW_HIDE;
+	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
 
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(
@@ -537,7 +403,6 @@ void CExec::CreateProcessDesktop()
 		NULL,
 		&startupInfo,
 		&processInformation);
-
 	if (!status)
 	{
 		LOG(ERROR) << "CreateProcessAsUser failed for console user.";
@@ -547,26 +412,26 @@ void CExec::CreateProcessDesktop()
 	CloseHandle(processInformation.hProcess);
 	CloseHandle(processInformation.hThread);
 
-	// wait for pipe connection that indicates that desktop is prepared
+	// wait for ready event to become signalled
 	auto startTime = chrono::steady_clock::now();
 	const auto maxWaitTime = std::chrono::seconds(10);
-	do
-	{	
+	while (WaitForSingleObject(chReadyEvent, 100) != WAIT_OBJECT_0)
+	{
 		if (chrono::steady_clock::now() - startTime > maxWaitTime)
 		{
-			LOG(ERROR) << "Timeout while waiting for pipe connection of PrepareWindowStation.";
+			LOG(ERROR) << "Timeout while waiting for ready event from PrepareWindowStation.";
 			return;
 		}
-		this_thread::sleep_for(std::chrono::milliseconds(10));
-
-		ConnectNamedPipe(mPreparePipe, NULL);
-		LOG(ERROR) << "Last error: 0x" << std::hex << GetLastError();
-	} while (GetLastError() != ERROR_PIPE_CONNECTED);
+	}
 
 	LOG(INFO) << "Process desktop prepared.";
 }
 
 void CExec::ReleaseProcessDesktop()
 {
-
+	if (mPrepareReleaseEvent != NULL)
+	{
+		LOG(INFO) << "Setting desktop release event.";
+		SetEvent(mPrepareReleaseEvent);
+	}
 }
