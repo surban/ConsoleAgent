@@ -60,6 +60,9 @@ protected:
 	void TimerCallback();
 	void KillProcess();
 
+	void CreateProcessDesktop();
+	void ReleaseProcessDesktop();
+
 protected:
 	const int MAX_PING_TIME = 10;
 
@@ -81,6 +84,9 @@ protected:
 
 	clock_t mLastPingTime;
 	bool mProcessKilled;
+
+	CHandle mPreparePipe;
+	std::wstring mProcessDesktopName;
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(Exec), CExec)

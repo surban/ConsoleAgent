@@ -23,8 +23,13 @@
 #include <atlbase.h>
 #include <atlcom.h>
 #include <atlctl.h>
+#include <atlfile.h>
+#include <atlsecurity.h>
+
 #include <comutil.h>
 #include <sddl.h>
+#include <WtsApi32.h>
+
 
 #define ELPP_UNICODE
 #include "easylogging++.h"
