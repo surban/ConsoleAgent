@@ -24,7 +24,9 @@
 #include <atlcom.h>
 #include <atlctl.h>
 #include <comutil.h>
+#include <sddl.h>
 
+#define ELPP_UNICODE
 #include "easylogging++.h"
 
 

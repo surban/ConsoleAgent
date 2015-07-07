@@ -8,13 +8,32 @@
 
 using namespace ATL;
 
-
+/*
 class CConsoleServerModule : public ATL::CAtlExeModuleT< CConsoleServerModule >
 {
 public :
 	DECLARE_LIBID(LIBID_ConsoleServerLib)
 	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_CONSOLESERVER, "{962952B2-E216-40E8-9155-21578AB4B1D8}")
 	};
+*/
+
+class CConsoleServerModule : public ATL::CAtlServiceModuleT< CConsoleServerModule, IDS_SERVICENAME >
+{
+public:
+	DECLARE_LIBID(LIBID_ConsoleServerLib)
+	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_CONSOLESERVER, "{962952B2-E216-40E8-9155-21578AB4B1D8}")
+
+	HRESULT InitializeSecurity() throw()
+	{
+		// TODO : Call CoInitializeSecurity and provide the appropriate security settings for your service
+		// Suggested - PKT Level Authentication, 
+		// Impersonation Level of RPC_C_IMP_LEVEL_IDENTIFY 
+		// and an appropriate Non NULL Security Descriptor.
+
+		return S_OK;
+	}
+};
+
 
 CConsoleServerModule _AtlModule;
 
@@ -32,15 +51,6 @@ extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstan
 	el::Loggers::reconfigureAllLoggers(logConf);
 
 	LOG(INFO) << "ConsoleServer startup";
-
-	// allocate console
-	//BOOL success = AllocConsole();
-	//if (!success)
-	//{
-	//	LOG(ERROR) << "Failed to allocate console";
-	//	abort();
-	//}
-	//ShowWindow(GetConsoleWindow(), SW_HIDE);
 
 	// register timer
 	StartThreadTimer(1000);

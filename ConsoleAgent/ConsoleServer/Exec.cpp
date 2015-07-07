@@ -50,6 +50,175 @@ void CExec::TimerCallback()
 	//LOG(INFO) << "timer callback for IExec " << this;
 }
 
+
+
+STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
+{
+	_bstr_t sCommandLine(commandLine, true);
+
+	// create pipes for stdin, stdout, stderr
+	SECURITY_ATTRIBUTES saAttr;
+	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+	saAttr.bInheritHandle = TRUE;
+	saAttr.lpSecurityDescriptor = NULL;
+
+	if (!CreatePipe(&mStdoutRead, &mStdoutWrite, &saAttr, 0))
+		return E_FAIL;
+	if (!SetHandleInformation(mStdoutRead, HANDLE_FLAG_INHERIT, 0))
+		return E_FAIL;
+
+	if (!CreatePipe(&mStderrRead, &mStderrWrite, &saAttr, 0))
+		return E_FAIL;
+	if (!SetHandleInformation(mStderrRead, HANDLE_FLAG_INHERIT, 0))
+		return E_FAIL;
+
+	if (!CreatePipe(&mStdinRead, &mStdinWrite, &saAttr, 0))
+		return E_FAIL;
+	if (!SetHandleInformation(mStdinWrite, HANDLE_FLAG_INHERIT, 0))
+		return E_FAIL;
+
+
+	if (CoImpersonateClient() != S_OK)
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "Impersonation failed.";
+		return E_FAIL;
+	}
+	LOG(INFO) << "Impersonating client.";
+
+	// get impersenation access token
+	HANDLE hThread = GetCurrentThread();
+	HANDLE hImpersonationToken;
+	if (!OpenThreadToken(hThread, TOKEN_ALL_ACCESS, TRUE, &hImpersonationToken))
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "Opening thread access token failed.";
+		return E_FAIL;
+	}
+
+	CoRevertToSelf();
+
+	// get impersonation level
+	SECURITY_IMPERSONATION_LEVEL silLevel;
+	DWORD dwLength = sizeof(SECURITY_IMPERSONATION_LEVEL);
+	if (!GetTokenInformation(hImpersonationToken, TokenImpersonationLevel, &silLevel, dwLength, &dwLength))
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "GetTokenInformation failed.";
+		return E_FAIL;
+	}
+	LOG(INFO) << "Impersonation level is " << (int)silLevel;
+
+	// obtain primary token
+	HANDLE hPrimaryToken;
+	if (!DuplicateTokenEx(hImpersonationToken, 0, NULL, SecurityImpersonation, TokenPrimary, &hPrimaryToken))
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "DuplicateTokenEx failed.";
+		return E_FAIL;
+	}
+
+	// set session
+	DWORD dwConsoleSessionId = WTSGetActiveConsoleSessionId();
+	LOG(INFO) << "Console session id is 0x" << std::hex << dwConsoleSessionId;
+	if (dwConsoleSessionId == 0xFFFFFFFF) 
+	{
+		LOG(INFO) << "No console session active.";
+		return E_FAIL;
+	}
+
+	// set session
+	if (!SetTokenInformation(hPrimaryToken, TokenSessionId, &dwConsoleSessionId, sizeof(DWORD)))
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "SetTokenInformation failed.";
+		return E_FAIL;
+	}
+
+	// get groups
+	GetTokenInformation(hPrimaryToken, TokenGroups, NULL, 0, &dwLength);
+	TOKEN_GROUPS *tgGroups = (TOKEN_GROUPS *)malloc(dwLength);
+	if (!GetTokenInformation(hPrimaryToken, TokenGroups, tgGroups, dwLength, &dwLength))
+	{
+		*error = GetLastError();
+		LOG(WARNING) << "GetTokenInformation failed.";
+		return E_FAIL;
+	}
+
+	LOG(INFO) << "Group count: " << std::dec << tgGroups->GroupCount;
+	for (size_t i = 0; i < tgGroups->GroupCount; i++)
+	{
+		SID_AND_ATTRIBUTES saaGroup = tgGroups->Groups[i];
+		LPTSTR sSid;
+		ConvertSidToStringSid(saaGroup.Sid, &sSid);
+		LOG(INFO) << "Group membership: " << sSid << " Attributes: " << std::hex << saaGroup.Attributes;
+		LocalFree(sSid);
+	}
+
+
+	//// set token groups
+	//if (!SetTokenInformation(hPrimaryToken, TokenGroups, tgGroups, dwLength))
+	//{
+	//	*error = GetLastError();
+	//	LOG(WARNING) << "SetTokenInformation failed.";
+	//	return E_FAIL;
+	//}
+
+	// start process
+	LOG(INFO) << "Starting process with command line: " << sCommandLine;
+
+	STARTUPINFO startupInfo;
+	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
+	startupInfo.cb = sizeof(STARTUPINFO);
+	startupInfo.hStdOutput = mStdoutWrite;
+	startupInfo.hStdError = mStderrWrite;
+	startupInfo.hStdInput = mStdinRead;
+	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+	startupInfo.wShowWindow = SW_HIDE;
+	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
+	startupInfo.lpDesktop = L"WinSta0\\Default";
+
+	PROCESS_INFORMATION processInformation;
+	BOOL status = CreateProcessAsUser(
+		hPrimaryToken,
+		NULL,
+		sCommandLine,
+		NULL,
+		NULL,
+		TRUE,
+		CREATE_NEW_CONSOLE,
+		NULL,
+		NULL,
+		&startupInfo,
+		&processInformation);
+
+	if (!status)
+	{
+		// start failed: return error
+		*success = FALSE;
+		*error = GetLastError();
+		LOG(INFO) << "Starting process failed with error 0x" << std::hex << *error;
+		return S_OK;
+	}
+
+	// start succeeded
+	processStarted = true;
+	mProcess = processInformation.hProcess;
+	hThread = processInformation.hThread;
+	dwProcessId = processInformation.dwProcessId;
+	dwThreadId = processInformation.dwThreadId;
+	LOG(INFO) << "Started process with id " << dwProcessId;
+
+	// setup stdin pipe writer
+	mStdinWriter = std::make_unique<PipeWriter>(mStdinWrite);
+
+	*success = TRUE;
+	*error = 0;
+
+	return S_OK;
+}
+
+/*
 STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
 {
 	_bstr_t sCommandLine(commandLine, true);
@@ -130,6 +299,7 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 
 	return S_OK;
 }
+*/
 
 STDMETHODIMP CExec::ReadStdout(BSTR* data, long *dataLength)
 {

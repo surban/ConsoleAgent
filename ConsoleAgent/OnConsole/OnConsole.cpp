@@ -34,7 +34,23 @@ BOOL WINAPI CtrlHandler(DWORD dwCtrlType)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	HRESULT hr;
+
 	CoInitialize(NULL);
+	hr = CoInitializeSecurity(
+		NULL,
+		-1,
+		NULL,
+		NULL,
+		RPC_C_AUTHN_LEVEL_DEFAULT,
+		RPC_C_IMP_LEVEL_IMPERSONATE,
+		NULL,
+		EOAC_NONE,
+		NULL);
+	if (FAILED(hr)) {
+		wcerr << "COM security error: 0x" << std::hex << hr;
+		return -3;
+	}
 
 	// usage
 	if (argc < 2)
@@ -116,7 +132,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			long bsBufferLength;
 
 			pExec->ReadStdout(&bsBuffer, &bsBufferLength);
-			WriteFile(hStderr, bsBuffer, bsBufferLength, &bytesWritten, NULL);
+			WriteFile(hStdout, bsBuffer, bsBufferLength, &bytesWritten, NULL);
 			SysFreeString(bsBuffer);
 			if (bsBufferLength > 0)
 				hadData = true;
