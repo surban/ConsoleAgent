@@ -315,7 +315,7 @@ wstring GenerateUuidString()
 	return wsUuid;
 }
 
-bool GetConsoleAccessToken(CHandle &chConsoleAccessToken)
+bool GetConsoleAccessToken(CAccessToken &catConsoleAccessToken)
 {
 	DWORD dwConsoleSessionId = WTSGetActiveConsoleSessionId();
 	if (dwConsoleSessionId == 0xFFFFFFFF)
@@ -325,13 +325,23 @@ bool GetConsoleAccessToken(CHandle &chConsoleAccessToken)
 	if (!WTSQueryUserToken(dwConsoleSessionId, &hToken))
 		return false;
 
-	chConsoleAccessToken = CHandle(hToken);
+	catConsoleAccessToken.Attach(hToken);
 	return true;
 }
 
 void CExec::CreateProcessDesktop()
 {
 	LOG(INFO) << "Creating process desktop";
+
+	// get console access token
+	CAccessToken catConsoleToken;
+	if (!GetConsoleAccessToken(catConsoleToken))
+	{
+		LOG(ERROR) << "Cannot get console access token.";
+		return;
+	}
+	CSid csConsoleSid;
+	catConsoleToken.GetUser(&csConsoleSid);
 
 	// obtain own sid
 	CAccessToken catOwnToken;
@@ -352,17 +362,9 @@ void CExec::CreateProcessDesktop()
 	// generate desktop name
 	mProcessDesktopName = L"ConsoleServer_" + wsClientSid;
 
-	// get console access token
-	CHandle chConsoleToken;
-	if (!GetConsoleAccessToken(chConsoleToken))
-	{
-		LOG(ERROR) << "Cannot get console access token.";
-		return;
-	}
-
 	// create ACLs for events
 	CDacl cdEvent;
-	cdEvent.AddAllowedAce(csClientSid, GENERIC_ALL, 0);
+	cdEvent.AddAllowedAce(csConsoleSid, GENERIC_ALL, 0);
 	cdEvent.AddAllowedAce(csOwnSid, GENERIC_ALL, 0);
 	CSecurityDesc csdEvent;
 	csdEvent.SetOwner(csOwnSid);
@@ -389,10 +391,11 @@ void CExec::CreateProcessDesktop()
 	startupInfo.cb = sizeof(STARTUPINFO);
 	startupInfo.wShowWindow = SW_HIDE;
 	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
+	startupInfo.lpDesktop = L"WinSta0\\Default";
 
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(
-		chConsoleToken,
+		catConsoleToken.GetHandle(),
 		NULL,
 		const_cast<LPWSTR>(wsCmdLine.c_str()),
 		NULL,

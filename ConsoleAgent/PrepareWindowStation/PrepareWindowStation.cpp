@@ -98,6 +98,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (hReadyEvent == NULL)
 	{
 		std::wcerr << "Failed to open ready event.";
+		while (true);
 		return 7;
 	}
 	SetEvent(hReadyEvent);
@@ -109,6 +110,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (hReleaseEvent == NULL)
 	{
 		std::wcerr << "Failed to open release event.";
+		while (true);
 		return 8;
 	}
 	while (WaitForSingleObject(hReleaseEvent, checkInterval) != WAIT_OBJECT_0)
