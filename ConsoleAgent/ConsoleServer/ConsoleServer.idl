@@ -1,9 +1,3 @@
-// ConsoleServer.idl : IDL source for ConsoleServer
-//
-
-// This file will be processed by the MIDL tool to
-// produce the type library (ConsoleServer.tlb) and marshalling code.
-
 import "oaidl.idl";
 import "ocidl.idl";
 
@@ -24,8 +18,23 @@ interface IExec : IDispatch{
 	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
 	[] HRESULT SendControl(ControlEvent evt);
 	[] HRESULT Ping();
+	[] HRESULT IsWindowStationPrepared([out] BYTE* prepared);
 };
 
+
+
+[
+	object,
+	uuid(D9E61F1B-4A48-4A08-8C71-150DFB6C4748),
+	dual,
+	nonextensible,
+	pointer_default(unique)
+]
+interface IPrepareWindowStationComm : IDispatch{
+	[] HRESULT GetData([in] BSTR preparationId, [out] BSTR* desktopName, [out] BSTR* clientSidString);
+	[] HRESULT IsActive([in] BSTR preparationId, [out] BYTE* active);
+	[id(1)] HRESULT PreparationCompleted([in] BSTR preparationId);
+};
 
 
 [
@@ -35,12 +44,21 @@ interface IExec : IDispatch{
 library ConsoleServerLib
 {
 	importlib("stdole2.tlb");
+
 	[
 		uuid(696511A9-45A2-4CFB-834F-CD134A7FFF5A)		
 	]
 	coclass Exec
 	{
 		[default] interface IExec;
+	};
+
+	[
+		uuid(158AA083-89FF-48CD-9123-299FDB200B28)		
+	]
+	coclass PrepareWindowStationComm
+	{
+		[default] interface IPrepareWindowStationComm;
 	};
 };
 

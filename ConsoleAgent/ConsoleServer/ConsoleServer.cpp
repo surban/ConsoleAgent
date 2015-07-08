@@ -5,6 +5,7 @@
 #include "resource.h"
 #include "ConsoleServer_i.h"
 #include "Timers.h"
+#include "utils.h"
 
 using namespace ATL;
 
@@ -45,10 +46,7 @@ extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstan
 								LPTSTR /*lpCmdLine*/, int nShowCmd)
 {
 	// configure logging
-	el::Configurations logConf;
-	logConf.setToDefault();
-	logConf.set(el::Level::Global, el::ConfigurationType::Filename, "c:\\temp\\ConsoleServer.log");
-	el::Loggers::reconfigureAllLoggers(logConf);
+	ConfigureLogging();
 
 	LOG(INFO) << "ConsoleServer startup";
 

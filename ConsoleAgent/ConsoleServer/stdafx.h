@@ -30,6 +30,11 @@
 #include <sddl.h>
 #include <WtsApi32.h>
 
+#include <string>
+#include <vector>
+#include <map>
+
+
 
 #define ELPP_UNICODE
 #include "easylogging++.h"

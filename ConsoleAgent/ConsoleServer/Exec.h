@@ -6,6 +6,7 @@
 #include "ConsoleServer_i.h"
 
 #include "PipeTools.h"
+#include "WindowStationPreparation.h"
 
 #include <memory>
 
@@ -54,14 +55,14 @@ public:
 	STDMETHOD(GetTerminationStatus)(BYTE* hasTerminated, LONGLONG* exitCode);
 	STDMETHOD(SendControl)(ControlEvent evt);
 	STDMETHOD(Ping)();
+	STDMETHOD(IsWindowStationPrepared)(BYTE* prepared);
 
 protected:
 
 	void TimerCallback();
 	void KillProcess();
+	void PrepareWindowStation();
 
-	void CreateProcessDesktop();
-	void ReleaseProcessDesktop();
 
 protected:
 	const int MAX_PING_TIME = 10;
@@ -85,9 +86,7 @@ protected:
 	clock_t mLastPingTime;
 	bool mProcessKilled;
 
-	CHandle mPreparePipe;
-	CHandle mPrepareReleaseEvent;
-	std::wstring mProcessDesktopName;
+	shared_ptr<WindowStationPreparation> mWindowStationPreparation;
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(Exec), CExec)

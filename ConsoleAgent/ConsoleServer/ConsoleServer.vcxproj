@@ -235,6 +235,7 @@ exit 0
       </PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Exec.cpp" />
+    <ClCompile Include="PrepareWindowStationComm.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -242,17 +243,20 @@ exit 0
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Timers.cpp" />
+    <ClCompile Include="WindowStationPreparation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConsoleServer_i.h" />
     <ClInclude Include="easylogging++.h" />
     <ClInclude Include="Exec.h" />
     <ClInclude Include="PipeTools.h" />
+    <ClInclude Include="PrepareWindowStationComm.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Timers.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="WindowStationPreparation.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ConsoleServer.rc" />
@@ -260,6 +264,7 @@ exit 0
   <ItemGroup>
     <None Include="ConsoleServer.rgs" />
     <None Include="Exec.rgs" />
+    <None Include="PrepareWindowStationComm.rgs" />
   </ItemGroup>
   <ItemGroup>
     <Midl Include="ConsoleServer.idl" />

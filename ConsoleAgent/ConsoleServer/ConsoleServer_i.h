@@ -4,7 +4,7 @@
 
 
  /* File created by MIDL compiler version 8.00.0603 */
-/* at Mon Jul 06 23:24:13 2015
+/* at Wed Jul 08 18:49:30 2015
  */
 /* Compiler settings for ConsoleServer.idl:
     Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0603 
@@ -52,6 +52,13 @@ typedef interface IExec IExec;
 #endif 	/* __IExec_FWD_DEFINED__ */
 
 
+#ifndef __IPrepareWindowStationComm_FWD_DEFINED__
+#define __IPrepareWindowStationComm_FWD_DEFINED__
+typedef interface IPrepareWindowStationComm IPrepareWindowStationComm;
+
+#endif 	/* __IPrepareWindowStationComm_FWD_DEFINED__ */
+
+
 #ifndef __Exec_FWD_DEFINED__
 #define __Exec_FWD_DEFINED__
 
@@ -62,6 +69,18 @@ typedef struct Exec Exec;
 #endif /* __cplusplus */
 
 #endif 	/* __Exec_FWD_DEFINED__ */
+
+
+#ifndef __PrepareWindowStationComm_FWD_DEFINED__
+#define __PrepareWindowStationComm_FWD_DEFINED__
+
+#ifdef __cplusplus
+typedef class PrepareWindowStationComm PrepareWindowStationComm;
+#else
+typedef struct PrepareWindowStationComm PrepareWindowStationComm;
+#endif /* __cplusplus */
+
+#endif 	/* __PrepareWindowStationComm_FWD_DEFINED__ */
 
 
 /* header files for imported files */
@@ -128,6 +147,9 @@ EXTERN_C const IID IID_IExec;
             ControlEvent evt) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE Ping( void) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE IsWindowStationPrepared( 
+            /* [out] */ BYTE *prepared) = 0;
         
     };
     
@@ -220,6 +242,10 @@ EXTERN_C const IID IID_IExec;
         HRESULT ( STDMETHODCALLTYPE *Ping )( 
             IExec * This);
         
+        HRESULT ( STDMETHODCALLTYPE *IsWindowStationPrepared )( 
+            IExec * This,
+            /* [out] */ BYTE *prepared);
+        
         END_INTERFACE
     } IExecVtbl;
 
@@ -277,6 +303,9 @@ EXTERN_C const IID IID_IExec;
 #define IExec_Ping(This)	\
     ( (This)->lpVtbl -> Ping(This) ) 
 
+#define IExec_IsWindowStationPrepared(This,prepared)	\
+    ( (This)->lpVtbl -> IsWindowStationPrepared(This,prepared) ) 
+
 #endif /* COBJMACROS */
 
 
@@ -286,6 +315,162 @@ EXTERN_C const IID IID_IExec;
 
 
 #endif 	/* __IExec_INTERFACE_DEFINED__ */
+
+
+#ifndef __IPrepareWindowStationComm_INTERFACE_DEFINED__
+#define __IPrepareWindowStationComm_INTERFACE_DEFINED__
+
+/* interface IPrepareWindowStationComm */
+/* [unique][nonextensible][dual][uuid][object] */ 
+
+
+EXTERN_C const IID IID_IPrepareWindowStationComm;
+
+#if defined(__cplusplus) && !defined(CINTERFACE)
+    
+    MIDL_INTERFACE("D9E61F1B-4A48-4A08-8C71-150DFB6C4748")
+    IPrepareWindowStationComm : public IDispatch
+    {
+    public:
+        virtual HRESULT STDMETHODCALLTYPE GetData( 
+            /* [in] */ BSTR preparationId,
+            /* [out] */ BSTR *desktopName,
+            /* [out] */ BSTR *clientSidString) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE IsActive( 
+            /* [in] */ BSTR preparationId,
+            /* [out] */ BYTE *active) = 0;
+        
+        virtual /* [id] */ HRESULT STDMETHODCALLTYPE PreparationCompleted( 
+            /* [in] */ BSTR preparationId) = 0;
+        
+    };
+    
+    
+#else 	/* C style interface */
+
+    typedef struct IPrepareWindowStationCommVtbl
+    {
+        BEGIN_INTERFACE
+        
+        HRESULT ( STDMETHODCALLTYPE *QueryInterface )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ REFIID riid,
+            /* [annotation][iid_is][out] */ 
+            _COM_Outptr_  void **ppvObject);
+        
+        ULONG ( STDMETHODCALLTYPE *AddRef )( 
+            IPrepareWindowStationComm * This);
+        
+        ULONG ( STDMETHODCALLTYPE *Release )( 
+            IPrepareWindowStationComm * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetTypeInfoCount )( 
+            IPrepareWindowStationComm * This,
+            /* [out] */ UINT *pctinfo);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetTypeInfo )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ UINT iTInfo,
+            /* [in] */ LCID lcid,
+            /* [out] */ ITypeInfo **ppTInfo);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetIDsOfNames )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ REFIID riid,
+            /* [size_is][in] */ LPOLESTR *rgszNames,
+            /* [range][in] */ UINT cNames,
+            /* [in] */ LCID lcid,
+            /* [size_is][out] */ DISPID *rgDispId);
+        
+        /* [local] */ HRESULT ( STDMETHODCALLTYPE *Invoke )( 
+            IPrepareWindowStationComm * This,
+            /* [annotation][in] */ 
+            _In_  DISPID dispIdMember,
+            /* [annotation][in] */ 
+            _In_  REFIID riid,
+            /* [annotation][in] */ 
+            _In_  LCID lcid,
+            /* [annotation][in] */ 
+            _In_  WORD wFlags,
+            /* [annotation][out][in] */ 
+            _In_  DISPPARAMS *pDispParams,
+            /* [annotation][out] */ 
+            _Out_opt_  VARIANT *pVarResult,
+            /* [annotation][out] */ 
+            _Out_opt_  EXCEPINFO *pExcepInfo,
+            /* [annotation][out] */ 
+            _Out_opt_  UINT *puArgErr);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetData )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ BSTR preparationId,
+            /* [out] */ BSTR *desktopName,
+            /* [out] */ BSTR *clientSidString);
+        
+        HRESULT ( STDMETHODCALLTYPE *IsActive )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ BSTR preparationId,
+            /* [out] */ BYTE *active);
+        
+        /* [id] */ HRESULT ( STDMETHODCALLTYPE *PreparationCompleted )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ BSTR preparationId);
+        
+        END_INTERFACE
+    } IPrepareWindowStationCommVtbl;
+
+    interface IPrepareWindowStationComm
+    {
+        CONST_VTBL struct IPrepareWindowStationCommVtbl *lpVtbl;
+    };
+
+    
+
+#ifdef COBJMACROS
+
+
+#define IPrepareWindowStationComm_QueryInterface(This,riid,ppvObject)	\
+    ( (This)->lpVtbl -> QueryInterface(This,riid,ppvObject) ) 
+
+#define IPrepareWindowStationComm_AddRef(This)	\
+    ( (This)->lpVtbl -> AddRef(This) ) 
+
+#define IPrepareWindowStationComm_Release(This)	\
+    ( (This)->lpVtbl -> Release(This) ) 
+
+
+#define IPrepareWindowStationComm_GetTypeInfoCount(This,pctinfo)	\
+    ( (This)->lpVtbl -> GetTypeInfoCount(This,pctinfo) ) 
+
+#define IPrepareWindowStationComm_GetTypeInfo(This,iTInfo,lcid,ppTInfo)	\
+    ( (This)->lpVtbl -> GetTypeInfo(This,iTInfo,lcid,ppTInfo) ) 
+
+#define IPrepareWindowStationComm_GetIDsOfNames(This,riid,rgszNames,cNames,lcid,rgDispId)	\
+    ( (This)->lpVtbl -> GetIDsOfNames(This,riid,rgszNames,cNames,lcid,rgDispId) ) 
+
+#define IPrepareWindowStationComm_Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr)	\
+    ( (This)->lpVtbl -> Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr) ) 
+
+
+#define IPrepareWindowStationComm_GetData(This,preparationId,desktopName,clientSidString)	\
+    ( (This)->lpVtbl -> GetData(This,preparationId,desktopName,clientSidString) ) 
+
+#define IPrepareWindowStationComm_IsActive(This,preparationId,active)	\
+    ( (This)->lpVtbl -> IsActive(This,preparationId,active) ) 
+
+#define IPrepareWindowStationComm_PreparationCompleted(This,preparationId)	\
+    ( (This)->lpVtbl -> PreparationCompleted(This,preparationId) ) 
+
+#endif /* COBJMACROS */
+
+
+#endif 	/* C style interface */
+
+
+
+
+#endif 	/* __IPrepareWindowStationComm_INTERFACE_DEFINED__ */
 
 
 
@@ -304,6 +489,14 @@ EXTERN_C const CLSID CLSID_Exec;
 
 class DECLSPEC_UUID("696511A9-45A2-4CFB-834F-CD134A7FFF5A")
 Exec;
+#endif
+
+EXTERN_C const CLSID CLSID_PrepareWindowStationComm;
+
+#ifdef __cplusplus
+
+class DECLSPEC_UUID("158AA083-89FF-48CD-9123-299FDB200B28")
+PrepareWindowStationComm;
 #endif
 #endif /* __ConsoleServerLib_LIBRARY_DEFINED__ */
 

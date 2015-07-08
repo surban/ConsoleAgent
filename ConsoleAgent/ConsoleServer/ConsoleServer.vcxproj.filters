@@ -34,6 +34,12 @@
     <ClCompile Include="Timers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PrepareWindowStationComm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowStationPreparation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -63,6 +69,12 @@
     <ClInclude Include="Timers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PrepareWindowStationComm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowStationPreparation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ConsoleServer.rc">
@@ -74,6 +86,9 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="Exec.rgs">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="PrepareWindowStationComm.rgs">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

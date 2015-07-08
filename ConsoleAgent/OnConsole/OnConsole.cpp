@@ -31,6 +31,21 @@ BOOL WINAPI CtrlHandler(DWORD dwCtrlType)
 }
 
 
+void WaitForWindowStationPreparation()
+{
+	const auto maxWaitInterval = chrono::seconds(10);
+	BYTE prepared;
+	auto startTime = chrono::steady_clock::now();
+
+	do
+	{
+		if (chrono::steady_clock::now() - startTime > maxWaitInterval)
+			throw runtime_error("Timeout while waiting for window station preparation.");
+
+		pExec->IsWindowStationPrepared(&prepared);
+	} while (!prepared);
+}
+
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -65,6 +80,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		// connect to COM server
 		pExec.CreateInstance(__uuidof(ConsoleServerLib::Exec));
+
+		// wait for preparation of window station
+		WaitForWindowStationPreparation();
 
 		// build command line
 		wstring cmdLine;
@@ -167,10 +185,16 @@ int _tmain(int argc, _TCHAR* argv[])
 		
 		return (int)exitCode;
 	}
-	catch (_com_error err) {
+	catch (_com_error err) 
+	{
 		wcerr << "==========================================================" << endl;
 		wcerr << "COM error: 0x" << hex << err.Error() << " - " << err.ErrorMessage() << endl;
 		wcerr << "Check that ConsoleServer is properly installed." << endl;
+		return -3;
+	}
+	catch (runtime_error err)
+	{
+		wcerr << "Error: " << err.what() << endl;
 		return -3;
 	}
 

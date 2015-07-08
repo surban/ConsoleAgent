@@ -9,17 +9,19 @@
 
 // CExec
 
+#define COM_FAIL(msg)  {LOG(ERROR) << msg; return E_FAIL;}
+
 CExec::CExec()
 {
+	LOG(INFO) << "CExec instantiated on thread " << std::this_thread::get_id();
+
 	processStarted = false;
 	mProcessKilled = false;
 
 	Ping();
 	RegisterTimer(this, std::bind(&CExec::TimerCallback, this));
 
-	LOG(INFO) << "CExec instantiated on thread " << std::this_thread::get_id();
-
-	CreateProcessDesktop();
+	PrepareWindowStation();
 }
 
 CExec::~CExec()
@@ -37,21 +39,19 @@ CExec::~CExec()
 		CloseHandle(mStdinWrite);
 	}
 
-	ReleaseProcessDesktop();
-
 	LOG(INFO) << "CExec destructed";
 }
 
 void CExec::TimerCallback()
 {
+	LOG(INFO) << "timer callback for IExec " << this;
+
 	// check if client is alive
 	if ((clock() - mLastPingTime) > MAX_PING_TIME * CLOCKS_PER_SEC && !mProcessKilled)
 	{
 		LOG(WARNING) << "client did not ping -- terminating process";
 		KillProcess();
 	}
-
-	//LOG(INFO) << "timer callback for IExec " << this;
 }
 
 
@@ -59,6 +59,9 @@ void CExec::TimerCallback()
 STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
 {
 	_bstr_t sCommandLine(commandLine, true);
+
+	if (!(mWindowStationPreparation && mWindowStationPreparation->IsPrepared()))
+		COM_FAIL("Window station is not prepared.");
 
 	// create pipes for stdin, stdout, stderr
 	SECURITY_ATTRIBUTES saAttr;
@@ -142,7 +145,7 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 	// start process
 	LOG(INFO) << "Starting process with command line: " << sCommandLine;
 
-	wstring wsWinstaAndDesktop = L"WinSta0\\" + mProcessDesktopName;
+	wstring wsWinstaAndDesktop = L"WinSta0\\" + mWindowStationPreparation->GetDesktopName();
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
 	startupInfo.cb = sizeof(STARTUPINFO);
@@ -302,139 +305,28 @@ void CExec::KillProcess()
 }
 
 
-wstring GenerateUuidString()
+void CExec::PrepareWindowStation()
 {
-	UUID uuid;
-	UuidCreate(&uuid);
+	CAccessToken clientToken;
+	if (!clientToken.OpenCOMClientToken(TOKEN_ALL_ACCESS))
+		throw runtime_error("Could not open COM client token.");
+	CSid clientSid;
+	if (!clientToken.GetUser(&clientSid))
+		throw runtime_error("Could not get COM client SID.");
 
-	RPC_WSTR csUuid;
-	UuidToString(&uuid, &csUuid);
-	std::wstring wsUuid(reinterpret_cast<wchar_t *>(csUuid));
-	RpcStringFree(&csUuid);
-
-	return wsUuid;
+	mWindowStationPreparation = WindowStationPreparation::Prepare(clientSid);
 }
 
-bool GetConsoleAccessToken(CAccessToken &catConsoleAccessToken)
+STDMETHODIMP CExec::IsWindowStationPrepared(BYTE* prepared)
 {
-	DWORD dwConsoleSessionId = WTSGetActiveConsoleSessionId();
-	if (dwConsoleSessionId == 0xFFFFFFFF)
-		return false;
-
-	HANDLE hToken;
-	if (!WTSQueryUserToken(dwConsoleSessionId, &hToken))
-		return false;
-
-	catConsoleAccessToken.Attach(hToken);
-	return true;
-}
-
-void CExec::CreateProcessDesktop()
-{
-	LOG(INFO) << "Creating process desktop";
-
-	// get console access token
-	CAccessToken catConsoleToken;
-	if (!GetConsoleAccessToken(catConsoleToken))
+	if (mWindowStationPreparation)
 	{
-		LOG(ERROR) << "Cannot get console access token.";
-		return;
+		*prepared = mWindowStationPreparation->IsPrepared();
+		return S_OK;
 	}
-	CSid csConsoleSid;
-	catConsoleToken.GetUser(&csConsoleSid);
-
-	// obtain own sid
-	CAccessToken catOwnToken;
-	catOwnToken.GetProcessToken(TOKEN_READ | TOKEN_QUERY);
-	CSid csOwnSid;
-	catOwnToken.GetUser(&csOwnSid);
-	wstring wsOwnSid(csOwnSid.Sid());
-	LOG(INFO) << "Own sid is " << wsOwnSid;
-
-	// obtain client sid
-	CAccessToken catClientToken;
-	catClientToken.OpenCOMClientToken(TOKEN_READ | TOKEN_QUERY);
-	CSid csClientSid;
-	catClientToken.GetUser(&csClientSid);
-	wstring wsClientSid(csClientSid.Sid());
-	LOG(INFO) << "Client sid is " << wsClientSid;
-
-	// generate desktop name
-	mProcessDesktopName = L"ConsoleServer_" + wsClientSid;
-
-	// create ACLs for events
-	CDacl cdEvent;
-	cdEvent.AddAllowedAce(csConsoleSid, GENERIC_ALL, 0);
-	cdEvent.AddAllowedAce(csOwnSid, GENERIC_ALL, 0);
-	CSecurityDesc csdEvent;
-	csdEvent.SetOwner(csOwnSid);
-	csdEvent.SetDacl(cdEvent);
-	CSecurityAttributes csaEvent(csdEvent);
-
-	// create events
-	wstring wssUuid = GenerateUuidString();
-
-	wstring wssReadyEventName = L"Global\\PrepareWindowStation_Ready_" + wssUuid;
-	HANDLE hReadyEvent = CreateEvent(&csaEvent, TRUE, FALSE, wssReadyEventName.c_str());
-	CHandle chReadyEvent(hReadyEvent);
-
-	wstring wssReleaseEventName = L"Global\\PrepareWindowStation_Release_" + wssUuid;
-	HANDLE hReleaseEvent = CreateEvent(&csaEvent, TRUE, FALSE, wssReleaseEventName.c_str());
-	mPrepareReleaseEvent = CHandle(hReleaseEvent);
-	
-	// execute PrepareWindowStation on console session
-	wstring wsCmdLine = L"PrepareWindowStation.exe " + 
-		wsClientSid + L" " + mProcessDesktopName + L" " + wssReadyEventName + L" " + wssReleaseEventName;
-
-	STARTUPINFO startupInfo;
-	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
-	startupInfo.cb = sizeof(STARTUPINFO);
-	startupInfo.wShowWindow = SW_HIDE;
-	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
-	startupInfo.lpDesktop = L"WinSta0\\Default";
-
-	PROCESS_INFORMATION processInformation;
-	BOOL status = CreateProcessAsUser(
-		catConsoleToken.GetHandle(),
-		NULL,
-		const_cast<LPWSTR>(wsCmdLine.c_str()),
-		NULL,
-		NULL,
-		TRUE,
-		CREATE_NEW_CONSOLE,
-		NULL,
-		NULL,
-		&startupInfo,
-		&processInformation);
-	if (!status)
+	else
 	{
-		LOG(ERROR) << "CreateProcessAsUser failed for console user.";
-		return;
-	}
-
-	CloseHandle(processInformation.hProcess);
-	CloseHandle(processInformation.hThread);
-
-	// wait for ready event to become signalled
-	auto startTime = chrono::steady_clock::now();
-	const auto maxWaitTime = std::chrono::seconds(10);
-	while (WaitForSingleObject(chReadyEvent, 100) != WAIT_OBJECT_0)
-	{
-		if (chrono::steady_clock::now() - startTime > maxWaitTime)
-		{
-			LOG(ERROR) << "Timeout while waiting for ready event from PrepareWindowStation.";
-			return;
-		}
-	}
-
-	LOG(INFO) << "Process desktop prepared.";
-}
-
-void CExec::ReleaseProcessDesktop()
-{
-	if (mPrepareReleaseEvent != NULL)
-	{
-		LOG(INFO) << "Setting desktop release event.";
-		SetEvent(mPrepareReleaseEvent);
+		*prepared = false;
+		return S_OK;
 	}
 }

@@ -1,0 +1,17 @@
+HKCR
+{
+	NoRemove CLSID
+	{
+		ForceRemove {158AA083-89FF-48CD-9123-299FDB200B28} = s 'PrepareWindowStationComm Class'
+		{
+			val AppID = s '{DB55AB7A-9650-4E6C-8085-73F44D2485C9}'
+			ForceRemove Programmable
+			LocalServer32 = s '%MODULE%'
+			{
+				val ServerExecutable = s '%MODULE_RAW%'
+			}
+			TypeLib = s '{B6EBFBF7-CD9F-4172-92F8-EE7D12CFC703}'
+			Version = s '1.0'
+		}
+	}
+}
