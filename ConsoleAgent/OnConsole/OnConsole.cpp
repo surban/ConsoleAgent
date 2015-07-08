@@ -1,15 +1,22 @@
+#include <SDKDDKVer.h>
+#include <tchar.h>
+#include <atlbase.h>
+#include <comutil.h>
 
-#include "stdafx.h"
+#include <iostream>
+
+#import <ConsoleServer.tlb>
 
 #include "utils.h"
 #include "PipeTools.h"
 
-using namespace std;
 
+using namespace std;
 
 ConsoleServerLib::IExecPtr pExec;
 
 
+// console events
 volatile bool ConsoleSignalPending;
 volatile ConsoleServerLib::ControlEvent ConsoleSignalEvent;
 
@@ -47,25 +54,84 @@ void WaitForWindowStationPreparation()
 }
 
 
+void SetupRedirection(shared_ptr<PipeReader> &prStdin, 
+					  shared_ptr<PipeWriter> &pwStdout, 
+					  shared_ptr<PipeWriter> &pwStderr)
+{
+	// standard handles
+	auto hStdin = make_shared<CHandle>(GetStdHandle(STD_INPUT_HANDLE));
+	auto hStdout = make_shared<CHandle>(GetStdHandle(STD_OUTPUT_HANDLE));
+	auto hStderr = make_shared<CHandle>(GetStdHandle(STD_ERROR_HANDLE));
+
+	// check if stdin is console
+	bool stdinConsole;
+	DWORD consoleMode;
+	if (GetConsoleMode(*hStdin, &consoleMode))
+		stdinConsole = true;
+	else
+		stdinConsole = false;
+
+	// if stdin is a console, configure it accordingly
+	if (stdinConsole)
+		SetConsoleMode(*hStdin, ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+
+	// setup pipe readers and writers
+	prStdin = make_shared<PipeReader>(hStdin, stdinConsole ? INPUTDETECT_WAIT : INPUTDETECT_NONE);
+	pwStdout = make_shared<PipeWriter>(hStdout);
+	pwStderr = make_shared<PipeWriter>(hStderr);
+}
+
+bool HandleRedirection(shared_ptr<PipeReader> prStdin,
+					   shared_ptr<PipeWriter> pwStdout,
+					   shared_ptr<PipeWriter> pwStderr)
+{
+	bool hadData = false;
+	vector<char> vBuffer;
+	BSTR bsBuffer;
+	long bsBufferLength;
+
+	// read and transmit stdin
+	vBuffer = prStdin->Read();
+	if (!vBuffer.empty())
+	{
+		bsBuffer = VectorToBstr(vBuffer);
+		pExec->WriteStdin(bsBuffer, (long)vBuffer.size());
+		SysFreeString(bsBuffer);
+		hadData = true;
+	}
+
+	// receive and output stdout 
+	pExec->ReadStdout(&bsBuffer, &bsBufferLength);
+	vBuffer = BstrToVector<char>(bsBuffer, bsBufferLength);
+	SysFreeString(bsBuffer);
+	if (!vBuffer.empty())
+	{
+		pwStdout->Write(vBuffer);
+		hadData = true;
+	}
+
+	// receive and output stderr
+	pExec->ReadStderr(&bsBuffer, &bsBufferLength);
+	vBuffer = BstrToVector<char>(bsBuffer, bsBufferLength);
+	SysFreeString(bsBuffer);
+	if (!vBuffer.empty())
+	{
+		pwStderr->Write(vBuffer);
+		hadData = true;
+	}
+
+	return hadData;
+}
+
 int _tmain(int argc, _TCHAR* argv[])
 {
-	HRESULT hr;
-
+	// initialize COM
 	CoInitialize(NULL);
-	hr = CoInitializeSecurity(
-		NULL,
-		-1,
-		NULL,
-		NULL,
-		RPC_C_AUTHN_LEVEL_DEFAULT,
-		RPC_C_IMP_LEVEL_IMPERSONATE,
-		NULL,
-		EOAC_NONE,
-		NULL);
-	if (FAILED(hr)) {
-		wcerr << "COM security error: 0x" << std::hex << hr;
-		return -3;
-	}
+	HRESULT hr = CoInitializeSecurity(NULL,	-1,	NULL, NULL,	
+									  RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE,
+								      NULL, EOAC_NONE, NULL);
+	if (FAILED(hr))
+		throw runtime_error("COM security error");
 
 	// usage
 	if (argc < 2)
@@ -75,7 +141,16 @@ int _tmain(int argc, _TCHAR* argv[])
 		wcerr << "Executes the specified program on the console session." << endl;
 		return -2;
 	}
-	
+
+	// build command line
+	wstring cmdLine;
+	for (int n = 1; n < argc; n++)
+	{
+		if (n > 1)
+			cmdLine += L" ";
+		cmdLine += argv[n];
+	}
+
 	try 
 	{
 		// connect to COM server
@@ -84,92 +159,39 @@ int _tmain(int argc, _TCHAR* argv[])
 		// wait for preparation of window station
 		WaitForWindowStationPreparation();
 
-		// build command line
-		wstring cmdLine;
-		for (int n = 1; n < argc; n++) 
-		{
-			if (n > 1)
-				cmdLine += L" ";
-			cmdLine += argv[n];
-		}
-		_bstr_t bsCmdLine(cmdLine.c_str());
-
 		// start process on console session
 		BYTE success;
 		LONGLONG error;
-		pExec->StartProcess(bsCmdLine.GetBSTR(), &success, &error);
+		pExec->StartProcess(WStringToBStr(cmdLine), &success, &error);
 
-		// process start failure
+		// check if start failed
 		if (!success)
 		{
 			_com_error err((HRESULT)error);
 			wcerr << "Process launch failure: " << err.ErrorMessage() << endl;
 			return -1;
 		}
-		
-		// standard handles
-		HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-		HANDLE hStderr = GetStdHandle(STD_ERROR_HANDLE);
-		HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-
-		// check if stdin is console
-		bool stdinConsole;
-		DWORD consoleMode;
-		if (GetConsoleMode(hStdin, &consoleMode))
-			stdinConsole = true;
-		else
-			stdinConsole = false;
-
-		// if stdin is a console, configure it accordingly
-		if (stdinConsole)
-			SetConsoleMode(hStdin, ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
-
-		// stdin reader
-		PipeReader prStdin(hStdin, stdinConsole ? INPUTDETECT_WAIT : INPUTDETECT_NONE);
 
 		// register console event handler
 		ConsoleSignalPending = false;
 		SetConsoleCtrlHandler(&CtrlHandler, TRUE);
+
+		// setup console redirection
+		shared_ptr<PipeReader> prStdin;
+		shared_ptr<PipeWriter> pwStdout;
+		shared_ptr<PipeWriter> pwStderr;
+		SetupRedirection(prStdin, pwStdout, pwStdout);
 
 		// monitor process
 		BYTE hasTerminated;
 		LONGLONG exitCode;
 		do
 		{
-			bool hadData = false;
-
-			// ping to show server that client is alive
+			// ping to show server that client is alivoe
 			pExec->Ping();
 
 			// check if process has terminated
 			pExec->GetTerminationStatus(&hasTerminated, &exitCode);
-
-			// receive and output stdout and stderr
-			DWORD bytesWritten;
-			BSTR bsBuffer;
-			long bsBufferLength;
-
-			pExec->ReadStdout(&bsBuffer, &bsBufferLength);
-			WriteFile(hStdout, bsBuffer, bsBufferLength, &bytesWritten, NULL);
-			SysFreeString(bsBuffer);
-			if (bsBufferLength > 0)
-				hadData = true;
-
-			pExec->ReadStderr(&bsBuffer, &bsBufferLength);
-			WriteFile(hStderr, bsBuffer, bsBufferLength, &bytesWritten, NULL);
-			SysFreeString(bsBuffer);
-			if (bsBufferLength > 0)
-				hadData = true;
-
-			// read and transmit stdin
-			vector<char> vBuffer = prStdin.Read();
-			if (!vBuffer.empty())
-			{
-				bsBuffer = VectorToBstr(vBuffer);
-				pExec->WriteStdin(bsBuffer, (long)vBuffer.size());
-				SysFreeString(bsBuffer);
-				hadData = true;
-			}
 
 			// send any events if required
 			if (ConsoleSignalPending)
@@ -178,16 +200,18 @@ int _tmain(int argc, _TCHAR* argv[])
 				ConsoleSignalPending = false;
 			}
 
-			// sleep before next pooling if no data was exchanged
-			if (!hadData)
+			// handle redirection
+			if (!HandleRedirection(prStdin, pwStdout, pwStdout))
+			{
+				// sleep before next pooling if no data was exchanged
 				this_thread::sleep_for(chrono::milliseconds(100));
+			}
 		} while (!hasTerminated);
 		
 		return (int)exitCode;
 	}
 	catch (_com_error err) 
 	{
-		wcerr << "==========================================================" << endl;
 		wcerr << "COM error: 0x" << hex << err.Error() << " - " << err.ErrorMessage() << endl;
 		wcerr << "Check that ConsoleServer is properly installed." << endl;
 		return -3;

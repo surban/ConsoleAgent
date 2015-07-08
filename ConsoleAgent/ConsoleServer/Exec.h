@@ -16,6 +16,7 @@
 #endif
 
 using namespace ATL;
+using namespace std;
 
 
 // CExec
@@ -67,24 +68,17 @@ protected:
 protected:
 	const int MAX_PING_TIME = 10;
 
-	bool processStarted;
-	
-	HANDLE mProcess;
-	HANDLE hThread;
-	DWORD dwProcessId;
-	DWORD dwThreadId;
+	bool mProcessStarted;
+	bool mProcessKilled;
 
-	HANDLE mStdoutRead;
-	HANDLE mStdoutWrite;
-	HANDLE mStderrRead;
-	HANDLE mStderrWrite;
-	HANDLE mStdinRead;
-	HANDLE mStdinWrite;
+	CHandle mProcessHandle;
+	DWORD mProcessId;
 
-	std::unique_ptr<PipeWriter> mStdinWriter;
+	shared_ptr<PipeReader> mStdoutReader;
+	shared_ptr<PipeReader> mStderrReader;
+	shared_ptr<PipeWriter> mStdinWriter;
 
 	clock_t mLastPingTime;
-	bool mProcessKilled;
 
 	shared_ptr<WindowStationPreparation> mWindowStationPreparation;
 };

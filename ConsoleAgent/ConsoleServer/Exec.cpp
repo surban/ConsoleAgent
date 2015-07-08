@@ -15,7 +15,7 @@ CExec::CExec()
 {
 	LOG(INFO) << "CExec instantiated on thread " << std::this_thread::get_id();
 
-	processStarted = false;
+	mProcessStarted = false;
 	mProcessKilled = false;
 
 	Ping();
@@ -30,7 +30,7 @@ CExec::~CExec()
 	DeregisterTimer(this);
 	mStdinWriter = nullptr;
 
-	if (processStarted)
+	if (mProcessStarted)
 	{
 		CloseHandle(mProcess);
 		CloseHandle(hThread);
@@ -181,12 +181,12 @@ STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* erro
 	}
 
 	// start succeeded
-	processStarted = true;
+	mProcessStarted = true;
 	mProcess = processInformation.hProcess;
 	hThread = processInformation.hThread;
-	dwProcessId = processInformation.dwProcessId;
+	mProcessId = processInformation.dwProcessId;
 	dwThreadId = processInformation.dwThreadId;
-	LOG(INFO) << "Started process with id " << dwProcessId;
+	LOG(INFO) << "Started process with id " << mProcessId;
 
 	// setup stdin pipe writer
 	mStdinWriter = std::make_unique<PipeWriter>(mStdinWrite);
@@ -255,9 +255,9 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 STDMETHODIMP CExec::SendControl(ControlEvent evt)
 {
 	// we must attach to the process' console to send the event
-	if (!AttachConsole(dwProcessId))
+	if (!AttachConsole(mProcessId))
 	{
-		LOG(WARNING) << "Attach to process " << dwProcessId << " console failed";
+		LOG(WARNING) << "Attach to process " << mProcessId << " console failed";
 		return S_OK;
 	}
 
@@ -294,10 +294,10 @@ STDMETHODIMP CExec::Ping()
 
 void CExec::KillProcess()
 {
-	if (!processStarted || mProcessKilled)
+	if (!mProcessStarted || mProcessKilled)
 		return;
 
-	LOG(INFO) << "Terminating process " << dwProcessId;
+	LOG(INFO) << "Terminating process " << mProcessId;
 	if (!TerminateProcess(mProcess, 0))
 		LOG(WARNING) << "Process termination failed";
 

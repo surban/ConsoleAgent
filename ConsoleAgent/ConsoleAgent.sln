@@ -11,14 +11,16 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OnConsole", "OnConsole\OnCo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleServer", "ConsoleServer\ConsoleServer.vcxproj", "{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleServerPS", "ConsoleServer\ConsoleServerPS.vcxproj", "{18D7A10E-86E6-490A-9343-2CC144B191A6}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PrepareWindowStation", "PrepareWindowStation\PrepareWindowStation.vcxproj", "{F52D4506-EF51-4625-A710-11E3EE075EAF}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC} = {A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PrepareWindowStation", "PrepareWindowStation\PrepareWindowStation.vcxproj", "{F52D4506-EF51-4625-A710-11E3EE075EAF}"
-	ProjectSection(ProjectDependencies) = postProject
-		{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC} = {A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "common", "common", "{07FBD653-9322-451D-BB39-8194E6B164FD}"
+	ProjectSection(SolutionItems) = preProject
+		easylogging++.h = easylogging++.h
+		PipeTools.h = PipeTools.h
+		utils.h = utils.h
 	EndProjectSection
 EndProject
 Global
@@ -55,14 +57,6 @@ Global
 		{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}.Release|Win32.Build.0 = Release|Win32
 		{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}.Release|x64.ActiveCfg = Release|x64
 		{A97A00C1-4EB1-4FF1-80B1-7870DAD990DC}.Release|x64.Build.0 = Release|x64
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Debug|Mixed Platforms.Build.0 = Debug|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Debug|Win32.ActiveCfg = Debug|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Debug|x64.ActiveCfg = Debug|x64
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Release|Mixed Platforms.ActiveCfg = Release|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Release|Mixed Platforms.Build.0 = Release|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Release|Win32.ActiveCfg = Release|Win32
-		{18D7A10E-86E6-490A-9343-2CC144B191A6}.Release|x64.ActiveCfg = Release|x64
 		{F52D4506-EF51-4625-A710-11E3EE075EAF}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
 		{F52D4506-EF51-4625-A710-11E3EE075EAF}.Debug|Mixed Platforms.Build.0 = Debug|Win32
 		{F52D4506-EF51-4625-A710-11E3EE075EAF}.Debug|Win32.ActiveCfg = Debug|Win32

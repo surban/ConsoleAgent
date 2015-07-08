@@ -1,5 +1,8 @@
-#include "stdafx.h"
 
+#include <Windows.h>
+#include <atlbase.h>
+
+#include <memory>
 #include <thread>
 #include <mutex>
 #include <deque>
@@ -7,16 +10,14 @@
 
 using namespace std;
 
-
 typedef vector<char> buffer_t;
-
 
 class PipeWriter
 {
 public:
 	PipeWriter() = delete;
 
-	PipeWriter(HANDLE hPipe)
+	PipeWriter(shared_ptr<ATL::CHandle> hPipe)
 	{
 		mPipe = hPipe;
 
@@ -61,7 +62,7 @@ protected:
 
 		while (remaining > 0 && mWriteThreadShouldRun)
 		{
-			WriteFile(mPipe, start, remaining, &bytesWritten, NULL);
+			WriteFile(*mPipe, start, remaining, &bytesWritten, NULL);
 			start += bytesWritten;
 			remaining -= bytesWritten;
 		}
@@ -82,9 +83,9 @@ protected:
 	}
 
 
-	HANDLE mPipe;
+	shared_ptr<ATL::CHandle> mPipe;
 
-	deque<const buffer_t> mQueue;
+	deque<buffer_t> mQueue;
 	mutex mQueueMutex;
 
 	thread mWriteThread;
@@ -106,7 +107,7 @@ class PipeReader
 public:
 	PipeReader() = delete;
 
-	PipeReader(HANDLE hPipe, PipeInputDetect inputDetect, size_t bufferSize=10000)
+	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, size_t bufferSize=10000)
 	{
 		mPipe = hPipe;
 		mInputDetect = inputDetect;
@@ -121,8 +122,6 @@ public:
 		if (mReadThreadShouldRun)
 		{
 			mReadThreadShouldRun = false;
-			HANDLE hThread = mReadThread.native_handle();
-			CancelSynchronousIo(hThread);
 			mReadThread.join();
 		}
 	}
@@ -160,7 +159,7 @@ protected:
 		case INPUTDETECT_PEEK:
 		{
 			DWORD bytesAvail;
-			if (!PeekNamedPipe(mPipe, NULL, 0, NULL, &bytesAvail, NULL))
+			if (!PeekNamedPipe(*mPipe, NULL, 0, NULL, &bytesAvail, NULL))
 				return empty;
 			if (bytesAvail == 0)
 				return empty;
@@ -169,7 +168,7 @@ protected:
 		}
 		case INPUTDETECT_WAIT:
 		{
-			DWORD result = WaitForSingleObject(mPipe, 0);
+			DWORD result = WaitForSingleObject(*mPipe, 0);
 			if (result != WAIT_OBJECT_0)
 				return empty;
 			bytesToRead = mBufferSize;
@@ -184,7 +183,7 @@ protected:
 
 		buffer_t buffer(bytesToRead);
 		DWORD bytesRead;
-		if (!ReadFile(mPipe, buffer.data(), (DWORD)bytesToRead, &bytesRead, NULL))
+		if (!ReadFile(*mPipe, buffer.data(), (DWORD)bytesToRead, &bytesRead, NULL))
 			return empty;
 		buffer.resize(bytesRead);
 
@@ -198,7 +197,7 @@ protected:
 	}
 
 
-	HANDLE mPipe;
+	shared_ptr<ATL::CHandle> mPipe;
 
 	deque<buffer_t> mQueue;
 	mutex mQueueMutex;

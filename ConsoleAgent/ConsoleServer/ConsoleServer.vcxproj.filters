@@ -54,16 +54,7 @@
     <ClInclude Include="ConsoleServer_i.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
-    <ClInclude Include="easylogging++.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Exec.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="utils.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PipeTools.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Timers.h">
