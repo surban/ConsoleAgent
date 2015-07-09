@@ -99,6 +99,7 @@ enum PipeInputDetect
 {
 	INPUTDETECT_WAIT,
 	INPUTDETECT_PEEK,
+	INPUTDETECT_CONSOLE,
 	INPUTDETECT_NONE
 };
 
@@ -107,7 +108,7 @@ class PipeReader
 public:
 	PipeReader() = delete;
 
-	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, size_t bufferSize=10000)
+	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, size_t bufferSize=100000)
 	{
 		mPipe = hPipe;
 		mInputDetect = inputDetect;
@@ -153,11 +154,11 @@ protected:
 	{
 		buffer_t empty(0);
 
+		// check if input is available
 		size_t bytesToRead;
 		switch (mInputDetect)
 		{
 		case INPUTDETECT_PEEK:
-		{
 			DWORD bytesAvail;
 			if (!PeekNamedPipe(*mPipe, NULL, 0, NULL, &bytesAvail, NULL))
 				return empty;
@@ -165,22 +166,26 @@ protected:
 				return empty;
 			bytesToRead = min(bytesAvail, mBufferSize);
 			break;
-		}
 		case INPUTDETECT_WAIT:
-		{
-			DWORD result = WaitForSingleObject(*mPipe, 0);
+			DWORD result;
+			result = WaitForSingleObject(*mPipe, 0);
 			if (result != WAIT_OBJECT_0)
 				return empty;
 			bytesToRead = mBufferSize;
 			break;
-		}
+		case INPUTDETECT_CONSOLE:
+			DWORD eventsAvail;
+			PeekConsoleInput(*mPipe, NULL, 0, &eventsAvail);
+			//if (eventsAvail == 0)
+//				return empty;
+			bytesToRead = mBufferSize;
+			break;
 		case INPUTDETECT_NONE:
-		{
 			bytesToRead = mBufferSize;
 			break;
 		}
-		}
 
+		// read input
 		buffer_t buffer(bytesToRead);
 		DWORD bytesRead;
 		if (!ReadFile(*mPipe, buffer.data(), (DWORD)bytesToRead, &bytesRead, NULL))

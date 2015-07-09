@@ -49,22 +49,21 @@ public:
 
 public:
 
+	STDMETHOD(Ping)();
+	STDMETHOD(PrepareWindowStation(BYTE *success));
+	STDMETHOD(IsWindowStationPrepared)(BYTE* prepared);
 	STDMETHOD(StartProcess)(BSTR commandLine, BYTE *success, LONGLONG* error);
+	STDMETHOD(GetTerminationStatus)(BYTE* hasTerminated, LONGLONG* exitCode);
 	STDMETHOD(ReadStdout)(BSTR* data, long *dataLength);
 	STDMETHOD(ReadStderr)(BSTR* data, long *dataLength);
 	STDMETHOD(WriteStdin)(BSTR data, long dataLength);
-	STDMETHOD(GetTerminationStatus)(BYTE* hasTerminated, LONGLONG* exitCode);
 	STDMETHOD(SendControl)(ControlEvent evt);
-	STDMETHOD(Ping)();
-	STDMETHOD(IsWindowStationPrepared)(BYTE* prepared);
 
 protected:
 
 	void DoStartProcess(wstring commandLine, bool &success, LONGLONG &error);
 	void TimerCallback();
 	void KillProcess();
-	void PrepareWindowStation();
-
 
 protected:
 	const int MAX_PING_TIME = 10;

@@ -11,14 +11,15 @@ typedef enum {CONTROLEVENT_C, CONTROLEVENT_BREAK} ControlEvent;
 	pointer_default(unique)
 ]
 interface IExec : IDispatch{
+	[] HRESULT Ping();
+	[] HRESULT PrepareWindowStation([out] BYTE* success);
+	[] HRESULT IsWindowStationPrepared([out] BYTE* prepared);
 	[] HRESULT StartProcess([in] BSTR commandLine, [out] BYTE* success, [out] LONGLONG* error);
+	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
 	[] HRESULT ReadStdout([out] BSTR* data, [out] long *dataLength);
 	[] HRESULT ReadStderr([out] BSTR* data, [out] long *dataLength);
 	[] HRESULT WriteStdin([in] BSTR data, [in] long dataLength);
-	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
 	[] HRESULT SendControl(ControlEvent evt);
-	[] HRESULT Ping();
-	[] HRESULT IsWindowStationPrepared([out] BYTE* prepared);
 };
 
 
@@ -31,9 +32,10 @@ interface IExec : IDispatch{
 	pointer_default(unique)
 ]
 interface IPrepareWindowStationComm : IDispatch{
-	[] HRESULT GetData([in] BSTR preparationId, [out] BSTR* desktopName, [out] BSTR* clientSidString);
-	[] HRESULT IsActive([in] BSTR preparationId, [out] BYTE* active);
-	[id(1)] HRESULT PreparationCompleted([in] BSTR preparationId);
+	[] HRESULT Attach([in] BSTR preparationId);
+	[] HRESULT GetData([out] BSTR* desktopName, [out] BSTR* clientSidString);
+	[] HRESULT IsActive([out] BYTE* active);
+	[] HRESULT PreparationCompleted();
 };
 
 

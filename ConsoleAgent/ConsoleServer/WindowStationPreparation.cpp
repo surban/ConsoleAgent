@@ -7,6 +7,7 @@ using namespace std;
 
 map<wstring, weak_ptr<WindowStationPreparation>> WindowStationPreparation::sActivePrepationsById;
 map<wstring, weak_ptr<WindowStationPreparation>> WindowStationPreparation::sActivePreparationsByClientAndConsole;
+list<wstring> WindowStationPreparation::sRunningPrepareProcessesByClientAndConsole;
 
 void GetConsoleAccessToken(CAccessToken &consoleToken)
 {
@@ -45,6 +46,15 @@ shared_ptr<WindowStationPreparation> WindowStationPreparation::Prepare(CSid clie
 	}
 	else
 	{
+		// check if a preparation process is still running, i.e. in the process of being terminated
+		if (count(sRunningPrepareProcessesByClientAndConsole.begin(),
+			      sRunningPrepareProcessesByClientAndConsole.end(),
+			      ccStr) > 0)
+		{
+			LOG(INFO) << "WindowStationPrepartion " << ccStr << " is not active but still not terminated";
+			throw PreparationStillTerminating();
+		}
+
 		// create new preparation
 		LOG(INFO) << "Creating WindowStationPreparation " << ccStr;
 
@@ -57,6 +67,18 @@ shared_ptr<WindowStationPreparation> WindowStationPreparation::Prepare(CSid clie
 		obj->StartPreparation();
 		return obj;
 	}
+}
+
+void WindowStationPreparation::PrepareProcessStarted(wstring clientConsoleString)
+{
+	LOG(INFO) << "PrepareWindowStation.exe connected for " << clientConsoleString;
+	sRunningPrepareProcessesByClientAndConsole.push_back(clientConsoleString);
+}
+
+void WindowStationPreparation::PrepareProcessTerminated(wstring clientConsoleString)
+{
+	LOG(INFO) << "PrepareWindowStation.exe disconnected for " << clientConsoleString;
+	sRunningPrepareProcessesByClientAndConsole.remove(clientConsoleString);
 }
 
 shared_ptr<WindowStationPreparation> WindowStationPreparation::GetPreparationById(wstring preparationId)
@@ -91,6 +113,11 @@ wstring WindowStationPreparation::GetDesktopName()
 wstring WindowStationPreparation::GetClientSidString()
 {
 	return SidToString(mClientSid);
+}
+
+wstring WindowStationPreparation::GetClientAndConsoleString()
+{
+	return mClientConsoleString;
 }
 
 void WindowStationPreparation::PreparationCompleted()

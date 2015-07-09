@@ -3,11 +3,11 @@
 /* this ALWAYS GENERATED file contains the definitions for the interfaces */
 
 
- /* File created by MIDL compiler version 8.00.0611 */
-/* at Tue Jan 19 04:14:07 2038
+ /* File created by MIDL compiler version 8.00.0603 */
+/* at Thu Jul 09 19:15:42 2015
  */
 /* Compiler settings for ConsoleServer.idl:
-    Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0611 
+    Oicf, W1, Zp8, env=Win64 (32b run), target_arch=AMD64 8.00.0603 
     protocol : dce , ms_ext, c_ext, robust
     error checks: allocation ref bounds_check enum stub_data 
     VC __declspec() decoration level: 
@@ -29,7 +29,7 @@
 
 #ifndef __RPCNDR_H_VERSION__
 #error this stub requires an updated version of <rpcndr.h>
-#endif /* __RPCNDR_H_VERSION__ */
+#endif // __RPCNDR_H_VERSION__
 
 #ifndef COM_NO_WINDOWS_H
 #include "windows.h"
@@ -122,10 +122,22 @@ EXTERN_C const IID IID_IExec;
     IExec : public IDispatch
     {
     public:
+        virtual HRESULT STDMETHODCALLTYPE Ping( void) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE PrepareWindowStation( 
+            /* [out] */ BYTE *success) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE IsWindowStationPrepared( 
+            /* [out] */ BYTE *prepared) = 0;
+        
         virtual HRESULT STDMETHODCALLTYPE StartProcess( 
             /* [in] */ BSTR commandLine,
             /* [out] */ BYTE *success,
             /* [out] */ LONGLONG *error) = 0;
+        
+        virtual HRESULT STDMETHODCALLTYPE GetTerminationStatus( 
+            /* [out] */ BYTE *hasTerminated,
+            /* [out] */ LONGLONG *exitCode) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE ReadStdout( 
             /* [out] */ BSTR *data,
@@ -139,17 +151,8 @@ EXTERN_C const IID IID_IExec;
             /* [in] */ BSTR data,
             /* [in] */ long dataLength) = 0;
         
-        virtual HRESULT STDMETHODCALLTYPE GetTerminationStatus( 
-            /* [out] */ BYTE *hasTerminated,
-            /* [out] */ LONGLONG *exitCode) = 0;
-        
         virtual HRESULT STDMETHODCALLTYPE SendControl( 
             ControlEvent evt) = 0;
-        
-        virtual HRESULT STDMETHODCALLTYPE Ping( void) = 0;
-        
-        virtual HRESULT STDMETHODCALLTYPE IsWindowStationPrepared( 
-            /* [out] */ BYTE *prepared) = 0;
         
     };
     
@@ -209,11 +212,27 @@ EXTERN_C const IID IID_IExec;
             /* [annotation][out] */ 
             _Out_opt_  UINT *puArgErr);
         
+        HRESULT ( STDMETHODCALLTYPE *Ping )( 
+            IExec * This);
+        
+        HRESULT ( STDMETHODCALLTYPE *PrepareWindowStation )( 
+            IExec * This,
+            /* [out] */ BYTE *success);
+        
+        HRESULT ( STDMETHODCALLTYPE *IsWindowStationPrepared )( 
+            IExec * This,
+            /* [out] */ BYTE *prepared);
+        
         HRESULT ( STDMETHODCALLTYPE *StartProcess )( 
             IExec * This,
             /* [in] */ BSTR commandLine,
             /* [out] */ BYTE *success,
             /* [out] */ LONGLONG *error);
+        
+        HRESULT ( STDMETHODCALLTYPE *GetTerminationStatus )( 
+            IExec * This,
+            /* [out] */ BYTE *hasTerminated,
+            /* [out] */ LONGLONG *exitCode);
         
         HRESULT ( STDMETHODCALLTYPE *ReadStdout )( 
             IExec * This,
@@ -230,21 +249,9 @@ EXTERN_C const IID IID_IExec;
             /* [in] */ BSTR data,
             /* [in] */ long dataLength);
         
-        HRESULT ( STDMETHODCALLTYPE *GetTerminationStatus )( 
-            IExec * This,
-            /* [out] */ BYTE *hasTerminated,
-            /* [out] */ LONGLONG *exitCode);
-        
         HRESULT ( STDMETHODCALLTYPE *SendControl )( 
             IExec * This,
             ControlEvent evt);
-        
-        HRESULT ( STDMETHODCALLTYPE *Ping )( 
-            IExec * This);
-        
-        HRESULT ( STDMETHODCALLTYPE *IsWindowStationPrepared )( 
-            IExec * This,
-            /* [out] */ BYTE *prepared);
         
         END_INTERFACE
     } IExecVtbl;
@@ -282,8 +289,20 @@ EXTERN_C const IID IID_IExec;
     ( (This)->lpVtbl -> Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr) ) 
 
 
+#define IExec_Ping(This)	\
+    ( (This)->lpVtbl -> Ping(This) ) 
+
+#define IExec_PrepareWindowStation(This,success)	\
+    ( (This)->lpVtbl -> PrepareWindowStation(This,success) ) 
+
+#define IExec_IsWindowStationPrepared(This,prepared)	\
+    ( (This)->lpVtbl -> IsWindowStationPrepared(This,prepared) ) 
+
 #define IExec_StartProcess(This,commandLine,success,error)	\
     ( (This)->lpVtbl -> StartProcess(This,commandLine,success,error) ) 
+
+#define IExec_GetTerminationStatus(This,hasTerminated,exitCode)	\
+    ( (This)->lpVtbl -> GetTerminationStatus(This,hasTerminated,exitCode) ) 
 
 #define IExec_ReadStdout(This,data,dataLength)	\
     ( (This)->lpVtbl -> ReadStdout(This,data,dataLength) ) 
@@ -294,17 +313,8 @@ EXTERN_C const IID IID_IExec;
 #define IExec_WriteStdin(This,data,dataLength)	\
     ( (This)->lpVtbl -> WriteStdin(This,data,dataLength) ) 
 
-#define IExec_GetTerminationStatus(This,hasTerminated,exitCode)	\
-    ( (This)->lpVtbl -> GetTerminationStatus(This,hasTerminated,exitCode) ) 
-
 #define IExec_SendControl(This,evt)	\
     ( (This)->lpVtbl -> SendControl(This,evt) ) 
-
-#define IExec_Ping(This)	\
-    ( (This)->lpVtbl -> Ping(This) ) 
-
-#define IExec_IsWindowStationPrepared(This,prepared)	\
-    ( (This)->lpVtbl -> IsWindowStationPrepared(This,prepared) ) 
 
 #endif /* COBJMACROS */
 
@@ -332,17 +342,17 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
     IPrepareWindowStationComm : public IDispatch
     {
     public:
+        virtual HRESULT STDMETHODCALLTYPE Attach( 
+            /* [in] */ BSTR preparationId) = 0;
+        
         virtual HRESULT STDMETHODCALLTYPE GetData( 
-            /* [in] */ BSTR preparationId,
             /* [out] */ BSTR *desktopName,
             /* [out] */ BSTR *clientSidString) = 0;
         
         virtual HRESULT STDMETHODCALLTYPE IsActive( 
-            /* [in] */ BSTR preparationId,
             /* [out] */ BYTE *active) = 0;
         
-        virtual /* [id] */ HRESULT STDMETHODCALLTYPE PreparationCompleted( 
-            /* [in] */ BSTR preparationId) = 0;
+        virtual HRESULT STDMETHODCALLTYPE PreparationCompleted( void) = 0;
         
     };
     
@@ -402,20 +412,21 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
             /* [annotation][out] */ 
             _Out_opt_  UINT *puArgErr);
         
+        HRESULT ( STDMETHODCALLTYPE *Attach )( 
+            IPrepareWindowStationComm * This,
+            /* [in] */ BSTR preparationId);
+        
         HRESULT ( STDMETHODCALLTYPE *GetData )( 
             IPrepareWindowStationComm * This,
-            /* [in] */ BSTR preparationId,
             /* [out] */ BSTR *desktopName,
             /* [out] */ BSTR *clientSidString);
         
         HRESULT ( STDMETHODCALLTYPE *IsActive )( 
             IPrepareWindowStationComm * This,
-            /* [in] */ BSTR preparationId,
             /* [out] */ BYTE *active);
         
-        /* [id] */ HRESULT ( STDMETHODCALLTYPE *PreparationCompleted )( 
-            IPrepareWindowStationComm * This,
-            /* [in] */ BSTR preparationId);
+        HRESULT ( STDMETHODCALLTYPE *PreparationCompleted )( 
+            IPrepareWindowStationComm * This);
         
         END_INTERFACE
     } IPrepareWindowStationCommVtbl;
@@ -453,14 +464,17 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
     ( (This)->lpVtbl -> Invoke(This,dispIdMember,riid,lcid,wFlags,pDispParams,pVarResult,pExcepInfo,puArgErr) ) 
 
 
-#define IPrepareWindowStationComm_GetData(This,preparationId,desktopName,clientSidString)	\
-    ( (This)->lpVtbl -> GetData(This,preparationId,desktopName,clientSidString) ) 
+#define IPrepareWindowStationComm_Attach(This,preparationId)	\
+    ( (This)->lpVtbl -> Attach(This,preparationId) ) 
 
-#define IPrepareWindowStationComm_IsActive(This,preparationId,active)	\
-    ( (This)->lpVtbl -> IsActive(This,preparationId,active) ) 
+#define IPrepareWindowStationComm_GetData(This,desktopName,clientSidString)	\
+    ( (This)->lpVtbl -> GetData(This,desktopName,clientSidString) ) 
 
-#define IPrepareWindowStationComm_PreparationCompleted(This,preparationId)	\
-    ( (This)->lpVtbl -> PreparationCompleted(This,preparationId) ) 
+#define IPrepareWindowStationComm_IsActive(This,active)	\
+    ( (This)->lpVtbl -> IsActive(This,active) ) 
+
+#define IPrepareWindowStationComm_PreparationCompleted(This)	\
+    ( (This)->lpVtbl -> PreparationCompleted(This) ) 
 
 #endif /* COBJMACROS */
 

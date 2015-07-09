@@ -1,11 +1,10 @@
-// PrepareWindowStationComm.h : Declaration of the CPrepareWindowStationComm
-
 #pragma once
+
+#include <memory>
+
 #include "resource.h"       // main symbols
-
-
-
 #include "ConsoleServer_i.h"
+#include "WindowStationPreparation.h"
 
 
 
@@ -25,20 +24,19 @@ class ATL_NO_VTABLE CPrepareWindowStationComm :
 {
 public:
 	DECLARE_REGISTRY_RESOURCEID(IDR_PREPAREWINDOWSTATIONCOMM)
-
-
 	BEGIN_COM_MAP(CPrepareWindowStationComm)
 		COM_INTERFACE_ENTRY(IPrepareWindowStationComm)
 		COM_INTERFACE_ENTRY(IDispatch)
 	END_COM_MAP()
+	DECLARE_PROTECT_FINAL_CONSTRUCT()
 
 
+public:
 	CPrepareWindowStationComm()
 	{
 	}
-
-
-	DECLARE_PROTECT_FINAL_CONSTRUCT()
+	
+	virtual ~CPrepareWindowStationComm();
 
 	HRESULT FinalConstruct()
 	{
@@ -50,9 +48,14 @@ public:
 	}
 
 public:
-	STDMETHOD(GetData)(BSTR preparationId, BSTR* desktopName, BSTR* clientSidString);
-	STDMETHOD(IsActive)(BSTR preparationId, BYTE* active);
-	STDMETHOD(PreparationCompleted)(BSTR preparationId);
+	STDMETHOD(Attach)(BSTR preparationId);
+	STDMETHOD(GetData)(BSTR* desktopName, BSTR* clientSidString);
+	STDMETHOD(IsActive)(BYTE* active);
+	STDMETHOD(PreparationCompleted)();
+
+protected:
+	std::weak_ptr<WindowStationPreparation> mPreparation;
+	std::wstring mClientAndConsole;
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(PrepareWindowStationComm), CPrepareWindowStationComm)

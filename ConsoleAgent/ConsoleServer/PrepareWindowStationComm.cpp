@@ -7,16 +7,32 @@
 
 // CPrepareWindowStationComm
 
+CPrepareWindowStationComm::~CPrepareWindowStationComm()
+{
+	if (!mClientAndConsole.empty())
+		WindowStationPreparation::PrepareProcessTerminated(mClientAndConsole);
+}
 
-STDMETHODIMP CPrepareWindowStationComm::GetData(BSTR preparationId, BSTR* desktopName, BSTR* clientSidString)
+
+STDMETHODIMP CPrepareWindowStationComm::Attach(BSTR preparationId)
 {
 	auto wsp = WindowStationPreparation::GetPreparationById(BStrToWString(preparationId));
 	if (wsp == nullptr)
-	{
-		*desktopName = NULL;
-		*clientSidString = NULL;
 		return E_FAIL;
-	}
+	
+	mPreparation = wsp;
+	mClientAndConsole = wsp->GetClientAndConsoleString();
+	wsp->PrepareProcessStarted(mClientAndConsole);
+
+	return S_OK;
+}
+
+
+STDMETHODIMP CPrepareWindowStationComm::GetData(BSTR* desktopName, BSTR* clientSidString)
+{
+	auto wsp = mPreparation.lock();
+	if (wsp == nullptr)
+		return E_FAIL;
 
 	*desktopName = WStringToBStr(wsp->GetDesktopName());
 	*clientSidString = WStringToBStr(wsp->GetClientSidString());
@@ -24,25 +40,21 @@ STDMETHODIMP CPrepareWindowStationComm::GetData(BSTR preparationId, BSTR* deskto
 }
 
 
-STDMETHODIMP CPrepareWindowStationComm::IsActive(BSTR preparationId, BYTE* active)
+STDMETHODIMP CPrepareWindowStationComm::IsActive(BYTE* active)
 {
-	auto wsp = WindowStationPreparation::GetPreparationById(BStrToWString(preparationId));
-	
-	if (wsp == nullptr)
-		*active = FALSE;
-	else
-		*active = TRUE;
-
+	*active = !mPreparation.expired();
 	return S_OK;
 }
 
 
-STDMETHODIMP CPrepareWindowStationComm::PreparationCompleted(BSTR preparationId)
+STDMETHODIMP CPrepareWindowStationComm::PreparationCompleted()
 {
-	auto wsp = WindowStationPreparation::GetPreparationById(BStrToWString(preparationId));
+	auto wsp = mPreparation.lock();
 	if (wsp == nullptr)
 		return E_FAIL;
 
 	wsp->PreparationCompleted();
 	return S_OK;
 }
+
+

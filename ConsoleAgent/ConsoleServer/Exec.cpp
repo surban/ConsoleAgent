@@ -20,8 +20,6 @@ CExec::CExec()
 
 	Ping();
 	RegisterTimer(this, std::bind(&CExec::TimerCallback, this));
-
-	PrepareWindowStation();
 }
 
 CExec::~CExec()
@@ -46,7 +44,8 @@ void CExec::TimerCallback()
 }
 
 
-void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> &writeHandle)
+void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> &writeHandle,
+						   bool inheritRead, bool inheritWrite)
 {
 	SECURITY_ATTRIBUTES secAttrs;
 	secAttrs.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -57,10 +56,18 @@ void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> 
 	HANDLE hWrite;
 	if (!CreatePipe(&hRead, &hWrite, &secAttrs, 0))
 		throw runtime_error("Pipe creation failed");
-	if (!SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0))
-		throw runtime_error("Setting pipe handle information failed");
-	if (!SetHandleInformation(hWrite, HANDLE_FLAG_INHERIT, 0))
-		throw runtime_error("Setting pipe handle information failed");
+
+	if (!inheritRead)
+	{
+		if (!SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0))
+			throw runtime_error("Setting pipe handle information failed");
+	}
+
+	if (!inheritWrite)
+	{
+		if (!SetHandleInformation(hWrite, HANDLE_FLAG_INHERIT, 0))
+			throw runtime_error("Setting pipe handle information failed");
+	}
 
 	readHandle = make_shared<CHandle>(hRead);
 	writeHandle = make_shared<CHandle>(hWrite);
@@ -75,17 +82,17 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 
 	// create pipe for stdout
 	shared_ptr<CHandle> stdoutReadHandle, stdoutWriteHandle;
-	CreateInheritablePipe(stdoutReadHandle, stdoutWriteHandle);
+	CreateInheritablePipe(stdoutReadHandle, stdoutWriteHandle, false, true);
 	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
 
 	// create pipe for stderr
 	shared_ptr<CHandle> stderrReadHandle, stderrWriteHandle;
-	CreateInheritablePipe(stderrReadHandle, stderrWriteHandle);
+	CreateInheritablePipe(stderrReadHandle, stderrWriteHandle, false, true);
 	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
 
 	// create pipe for stdin
 	shared_ptr<CHandle> stdinReadHandle, stdinWriteHandle;
-	CreateInheritablePipe(stdinReadHandle, stdinWriteHandle);
+	CreateInheritablePipe(stdinReadHandle, stdinWriteHandle, true, false);
 	mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
 
 	// obtain primary client access token
@@ -144,9 +151,9 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	LOG(INFO) << "Started process with process id " << std::dec << mProcessId;
 
 	// setup pipe readers and writers for stdout, stderr, stdin
-	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
-	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
-	mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
+	//mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
+	//mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
+	//mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
 
 	// report success
 	success = true;
@@ -276,16 +283,30 @@ void CExec::KillProcess()
 }
 
 
-void CExec::PrepareWindowStation()
+STDMETHODIMP CExec::PrepareWindowStation(BYTE *success)
 {
-	CAccessToken clientToken;
-	if (!clientToken.OpenCOMClientToken(TOKEN_ALL_ACCESS))
-		throw runtime_error("Could not open COM client token.");
-	CSid clientSid;
-	if (!clientToken.GetUser(&clientSid))
-		throw runtime_error("Could not get COM client SID.");
+	try 
+	{
+		CAccessToken clientToken;
+		if (!clientToken.OpenCOMClientToken(TOKEN_ALL_ACCESS))
+			throw runtime_error("Could not open COM client token.");
+		CSid clientSid;
+		if (!clientToken.GetUser(&clientSid))
+			throw runtime_error("Could not get COM client SID.");
 
-	mWindowStationPreparation = WindowStationPreparation::Prepare(clientSid);
+		mWindowStationPreparation = WindowStationPreparation::Prepare(clientSid);
+		*success = true;
+	}
+	catch (PreparationStillTerminating pst)
+	{ 
+		*success = false;
+	}
+	catch (runtime_error err)
+	{
+		return E_FAIL;
+	}
+
+	return S_OK;
 }
 
 STDMETHODIMP CExec::IsWindowStationPrepared(BYTE* prepared)

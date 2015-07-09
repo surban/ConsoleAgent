@@ -117,15 +117,15 @@ void UnprepareDesktop(wstring desktopName, CSid clientSid, HWINSTA hWinsta, HDES
 	CloseWindowStation(hWinsta);
 }
 
-void WaitWhileActive(wstring preparationId)
+void WaitWhileActive()
 {
 	try
 	{
 		BYTE active = TRUE;
 		while (active)
 		{
-			pComm->IsActive(WStringToBStr(preparationId), &active);
-			this_thread::sleep_for(chrono::seconds(1));
+			pComm->IsActive(&active);
+			this_thread::sleep_for(chrono::milliseconds(100));
 		}		
 	}
 	catch (_com_error err)
@@ -155,11 +155,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		// connect to COM server
 		pComm.CreateInstance(__uuidof(ConsoleServerLib::PrepareWindowStationComm));
+		pComm->Attach(WStringToBStr(preparationId));
 
 		// get desktop name and client sid
 		BSTR bsDesktopName;
 		BSTR bsClientSidString;
-		pComm->GetData(WStringToBStr(preparationId), &bsDesktopName, &bsClientSidString);
+		pComm->GetData(&bsDesktopName, &bsClientSidString);
 		wstring desktopName = BStrToWString(bsDesktopName);
 		wstring clientSidString = BStrToWString(bsClientSidString);
 		CSid clientSid = ParseSid(clientSidString);
@@ -171,10 +172,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		PrepareDesktop(desktopName, clientSid, hWinsta, hDesk, hadWinstaAce);
 
 		// signal that desktop is ready
-		pComm->PreparationCompleted(WStringToBStr(preparationId));
+		pComm->PreparationCompleted();
 
 		// wait while session is active to keep desktop from being deleted
-		WaitWhileActive(preparationId);
+		WaitWhileActive();
 
 		// unprepare desktop
 		UnprepareDesktop(desktopName, clientSid, hWinsta, hDesk, hadWinstaAce);

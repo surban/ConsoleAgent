@@ -13,6 +13,9 @@
 
 using namespace std;
 
+INITIALIZE_EASYLOGGINGPP;
+
+
 ConsoleServerLib::IExecPtr pExec;
 
 
@@ -40,16 +43,21 @@ BOOL WINAPI CtrlHandler(DWORD dwCtrlType)
 
 void WaitForWindowStationPreparation()
 {
-	const auto maxWaitInterval = chrono::seconds(10);
-	BYTE prepared;
 	auto startTime = chrono::steady_clock::now();
+	BYTE preparing = false;
+	BYTE prepared = false;
 
 	do
 	{
-		if (chrono::steady_clock::now() - startTime > maxWaitInterval)
-			throw runtime_error("Timeout while waiting for window station preparation.");
+		if (!preparing)
+			pExec->PrepareWindowStation(&preparing);
 
-		pExec->IsWindowStationPrepared(&prepared);
+		if (!prepared)
+			pExec->IsWindowStationPrepared(&prepared);
+
+		if (chrono::steady_clock::now() - startTime > chrono::seconds(10))
+			throw runtime_error("Timeout while waiting for window station preparation.");
+		this_thread::sleep_for(chrono::milliseconds(100));
 	} while (!prepared);
 }
 
@@ -67,16 +75,22 @@ void SetupRedirection(shared_ptr<PipeReader> &prStdin,
 	bool stdinConsole;
 	DWORD consoleMode;
 	if (GetConsoleMode(*hStdin, &consoleMode))
+	{
+		LOG(INFO) << "OnConsole: stdin is a console";
 		stdinConsole = true;
+	}
 	else
+	{
+		LOG(INFO) << "OnConsole: stdin is redirected";
 		stdinConsole = false;
+	}
 
 	// if stdin is a console, configure it accordingly
 	if (stdinConsole)
 		SetConsoleMode(*hStdin, ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
 
 	// setup pipe readers and writers
-	prStdin = make_shared<PipeReader>(hStdin, stdinConsole ? INPUTDETECT_WAIT : INPUTDETECT_NONE);
+	prStdin = make_shared<PipeReader>(hStdin, stdinConsole ? INPUTDETECT_CONSOLE : INPUTDETECT_NONE);
 	pwStdout = make_shared<PipeWriter>(hStdout);
 	pwStderr = make_shared<PipeWriter>(hStderr);
 }
@@ -125,6 +139,9 @@ bool HandleRedirection(shared_ptr<PipeReader> prStdin,
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	// initialize logging
+	ConfigureLogging();
+
 	// initialize COM
 	CoInitialize(NULL);
 	HRESULT hr = CoInitializeSecurity(NULL,	-1,	NULL, NULL,	
@@ -180,7 +197,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		shared_ptr<PipeReader> prStdin;
 		shared_ptr<PipeWriter> pwStdout;
 		shared_ptr<PipeWriter> pwStderr;
-		SetupRedirection(prStdin, pwStdout, pwStdout);
+		SetupRedirection(prStdin, pwStdout, pwStderr);
 
 		// monitor process
 		BYTE hasTerminated;
@@ -201,7 +218,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 
 			// handle redirection
-			if (!HandleRedirection(prStdin, pwStdout, pwStdout))
+			if (!HandleRedirection(prStdin, pwStdout, pwStderr))
 			{
 				// sleep before next pooling if no data was exchanged
 				this_thread::sleep_for(chrono::milliseconds(100));
