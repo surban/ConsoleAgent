@@ -83,12 +83,12 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	// create pipe for stdout
 	shared_ptr<CHandle> stdoutReadHandle, stdoutWriteHandle;
 	CreateInheritablePipe(stdoutReadHandle, stdoutWriteHandle, false, true);
-	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
+	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK, false);
 
 	// create pipe for stderr
 	shared_ptr<CHandle> stderrReadHandle, stderrWriteHandle;
 	CreateInheritablePipe(stderrReadHandle, stderrWriteHandle, false, true);
-	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
+	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK, false);
 
 	// create pipe for stdin
 	shared_ptr<CHandle> stdinReadHandle, stdinWriteHandle;
@@ -149,11 +149,6 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	mProcessStarted = true;
 
 	LOG(INFO) << "Started process with process id " << std::dec << mProcessId;
-
-	// setup pipe readers and writers for stdout, stderr, stdin
-	//mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
-	//mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
-	//mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
 
 	// report success
 	success = true;

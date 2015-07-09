@@ -108,33 +108,53 @@ class PipeReader
 public:
 	PipeReader() = delete;
 
-	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, size_t bufferSize=100000)
+	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, bool asyncRead, size_t bufferSize=100000)
 	{
 		mPipe = hPipe;
 		mInputDetect = inputDetect;
+		mAsyncRead = asyncRead;
 		mBufferSize = bufferSize;
-
-		mReadThreadShouldRun = true;
-		mReadThread = thread(&PipeReader::ReadThreadFunc, this);
+		
+		if (mAsyncRead)
+		{
+			mReadThreadShouldRun = true;
+			mReadThread = thread(&PipeReader::ReadThreadFunc, this);
+		}
 	}
 
 	virtual ~PipeReader()
 	{
-		if (mReadThreadShouldRun)
+		if (mAsyncRead && mReadThreadShouldRun)
 		{
 			mReadThreadShouldRun = false;
+			
+			if (mInputDetect == INPUTDETECT_CONSOLE)
+			{
+				// HACK: For some reason it is impossible to cancel IO on a console handle.
+				//       Thus the only way to stop the read operation is to terminate the thread.
+				HANDLE hThread = mReadThread.native_handle();
+				TerminateThread(hThread, 0);
+			}
+
 			mReadThread.join();
 		}
 	}
 
 	buffer_t Read()
 	{
-		lock_guard<mutex> lck(mQueueMutex);
-		if (mQueue.empty())
-			return buffer_t(0);
-		buffer_t data = mQueue.front();
-		mQueue.pop_front();
-		return data;
+		if (mAsyncRead)
+		{
+			lock_guard<mutex> lck(mQueueMutex);
+			if (mQueue.empty())
+				return buffer_t(0);
+			buffer_t data = mQueue.front();
+			mQueue.pop_front();
+			return data;
+		}
+		else
+		{
+			return ReadFromPipe();
+		}
 	}
 
 protected:
@@ -174,12 +194,6 @@ protected:
 			bytesToRead = mBufferSize;
 			break;
 		case INPUTDETECT_CONSOLE:
-			DWORD eventsAvail;
-			PeekConsoleInput(*mPipe, NULL, 0, &eventsAvail);
-			//if (eventsAvail == 0)
-//				return empty;
-			bytesToRead = mBufferSize;
-			break;
 		case INPUTDETECT_NONE:
 			bytesToRead = mBufferSize;
 			break;
@@ -187,9 +201,9 @@ protected:
 
 		// read input
 		buffer_t buffer(bytesToRead);
-		DWORD bytesRead;
+		DWORD bytesRead;		
 		if (!ReadFile(*mPipe, buffer.data(), (DWORD)bytesToRead, &bytesRead, NULL))
-			return empty;
+			return empty;		
 		buffer.resize(bytesRead);
 
 		return buffer;
@@ -207,6 +221,7 @@ protected:
 	deque<buffer_t> mQueue;
 	mutex mQueueMutex;
 
+	bool mAsyncRead;
 	thread mReadThread;
 	volatile bool mReadThreadShouldRun;
 

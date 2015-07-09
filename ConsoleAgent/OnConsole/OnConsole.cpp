@@ -90,7 +90,7 @@ void SetupRedirection(shared_ptr<PipeReader> &prStdin,
 		SetConsoleMode(*hStdin, ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
 
 	// setup pipe readers and writers
-	prStdin = make_shared<PipeReader>(hStdin, stdinConsole ? INPUTDETECT_CONSOLE : INPUTDETECT_NONE);
+	prStdin = make_shared<PipeReader>(hStdin, stdinConsole ? INPUTDETECT_CONSOLE : INPUTDETECT_NONE, true);
 	pwStdout = make_shared<PipeWriter>(hStdout);
 	pwStderr = make_shared<PipeWriter>(hStderr);
 }
@@ -202,6 +202,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		// monitor process
 		BYTE hasTerminated;
 		LONGLONG exitCode;
+		bool hadData;
 		do
 		{
 			// ping to show server that client is alivoe
@@ -218,12 +219,12 @@ int _tmain(int argc, _TCHAR* argv[])
 			}
 
 			// handle redirection
-			if (!HandleRedirection(prStdin, pwStdout, pwStderr))
-			{
-				// sleep before next pooling if no data was exchanged
+			hadData = HandleRedirection(prStdin, pwStdout, pwStderr);
+
+			// sleep before next pooling if no data was exchanged
+			if (!hadData)
 				this_thread::sleep_for(chrono::milliseconds(100));
-			}
-		} while (!hasTerminated);
+		} while (!hasTerminated || hadData);
 		
 		return (int)exitCode;
 	}
