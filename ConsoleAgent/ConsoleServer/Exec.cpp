@@ -27,17 +27,8 @@ CExec::CExec()
 CExec::~CExec()
 {
 	KillProcess();
-	DeregisterTimer(this);
-	mStdinWriter = nullptr;
 
-	if (mProcessStarted)
-	{
-		CloseHandle(mProcess);
-		CloseHandle(hThread);
-		CloseHandle(mStdoutRead);
-		CloseHandle(mStderrRead);
-		CloseHandle(mStdinWrite);
-	}
+	DeregisterTimer(this);
 
 	LOG(INFO) << "CExec destructed";
 }
@@ -55,151 +46,131 @@ void CExec::TimerCallback()
 }
 
 
-
-STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG* error)
+void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> &writeHandle)
 {
-	_bstr_t sCommandLine(commandLine, true);
+	SECURITY_ATTRIBUTES secAttrs;
+	secAttrs.nLength = sizeof(SECURITY_ATTRIBUTES);
+	secAttrs.bInheritHandle = TRUE;
+	secAttrs.lpSecurityDescriptor = NULL;
 
+	HANDLE hRead;
+	HANDLE hWrite;
+	if (!CreatePipe(&hRead, &hWrite, &secAttrs, 0))
+		throw runtime_error("Pipe creation failed");
+	if (!SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0))
+		throw runtime_error("Setting pipe handle information failed");
+	if (!SetHandleInformation(hWrite, HANDLE_FLAG_INHERIT, 0))
+		throw runtime_error("Setting pipe handle information failed");
+
+	readHandle = make_shared<CHandle>(hRead);
+	writeHandle = make_shared<CHandle>(hWrite);
+}
+
+
+void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
+{
+	// check that window station is prepared
 	if (!(mWindowStationPreparation && mWindowStationPreparation->IsPrepared()))
-		COM_FAIL("Window station is not prepared.");
+		throw runtime_error("Window station is not prepared.");
 
-	// create pipes for stdin, stdout, stderr
-	SECURITY_ATTRIBUTES saAttr;
-	saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
-	saAttr.bInheritHandle = TRUE;
-	saAttr.lpSecurityDescriptor = NULL;
+	// create pipe for stdout
+	shared_ptr<CHandle> stdoutReadHandle, stdoutWriteHandle;
+	CreateInheritablePipe(stdoutReadHandle, stdoutWriteHandle);
+	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
 
-	if (!CreatePipe(&mStdoutRead, &mStdoutWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStdoutRead, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
+	// create pipe for stderr
+	shared_ptr<CHandle> stderrReadHandle, stderrWriteHandle;
+	CreateInheritablePipe(stderrReadHandle, stderrWriteHandle);
+	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
 
-	if (!CreatePipe(&mStderrRead, &mStderrWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStderrRead, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
+	// create pipe for stdin
+	shared_ptr<CHandle> stdinReadHandle, stdinWriteHandle;
+	CreateInheritablePipe(stdinReadHandle, stdinWriteHandle);
+	mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
 
-	if (!CreatePipe(&mStdinRead, &mStdinWrite, &saAttr, 0))
-		return E_FAIL;
-	if (!SetHandleInformation(mStdinWrite, HANDLE_FLAG_INHERIT, 0))
-		return E_FAIL;
+	// obtain primary client access token
+	CAccessToken impersonationToken;
+	if (!impersonationToken.OpenCOMClientToken(TOKEN_ALL_ACCESS))
+		throw runtime_error("Could not open impersonation token.");
+	CAccessToken clientToken;
+	if (!impersonationToken.CreatePrimaryToken(&clientToken))
+		throw runtime_error("Could not create primary token from impersonation token.");
 
+	// get active console session
+	DWORD consoleSessionId = WTSGetActiveConsoleSessionId();
+	if (consoleSessionId == 0xFFFFFFFF)
+		throw runtime_error("No console session active.");
+	LOG(INFO) << "Console session id is " << std::dec << consoleSessionId;
 
-	if (CoImpersonateClient() != S_OK)
-	{
-		*error = GetLastError();
-		LOG(WARNING) << "Impersonation failed.";
-		return E_FAIL;
-	}
-	LOG(INFO) << "Impersonating client.";
-
-	// get impersenation access token
-	HANDLE hThread = GetCurrentThread();
-	HANDLE hImpersonationToken;
-	if (!OpenThreadToken(hThread, TOKEN_ALL_ACCESS, TRUE, &hImpersonationToken))
-	{
-		*error = GetLastError();
-		LOG(WARNING) << "Opening thread access token failed.";
-		return E_FAIL;
-	}
-
-	CoRevertToSelf();
-
-	// get impersonation level
-	SECURITY_IMPERSONATION_LEVEL silLevel;
-	DWORD dwLength = sizeof(SECURITY_IMPERSONATION_LEVEL);
-	if (!GetTokenInformation(hImpersonationToken, TokenImpersonationLevel, &silLevel, dwLength, &dwLength))
-	{
-		*error = GetLastError();
-		LOG(WARNING) << "GetTokenInformation failed.";
-		return E_FAIL;
-	}
-	LOG(INFO) << "Impersonation level is " << (int)silLevel;
-
-	// obtain primary token
-	HANDLE hPrimaryToken;
-	if (!DuplicateTokenEx(hImpersonationToken, 0, NULL, SecurityImpersonation, TokenPrimary, &hPrimaryToken))
-	{
-		*error = GetLastError();
-		LOG(WARNING) << "DuplicateTokenEx failed.";
-		return E_FAIL;
-	}
-
-	// set session
-	DWORD dwConsoleSessionId = WTSGetActiveConsoleSessionId();
-	LOG(INFO) << "Console session id is 0x" << std::hex << dwConsoleSessionId;
-	if (dwConsoleSessionId == 0xFFFFFFFF) 
-	{
-		LOG(INFO) << "No console session active.";
-		return E_FAIL;
-	}
-
-	// set session
-	if (!SetTokenInformation(hPrimaryToken, TokenSessionId, &dwConsoleSessionId, sizeof(DWORD)))
-	{
-		*error = GetLastError();
-		LOG(WARNING) << "SetTokenInformation failed.";
-		return E_FAIL;
-	}
+	// set session on client access token
+	if (!SetTokenInformation(clientToken.GetHandle(), TokenSessionId, &consoleSessionId, sizeof(DWORD)))
+		throw runtime_error("Failed to set session on client token.");
 
 	// start process
-	LOG(INFO) << "Starting process with command line: " << sCommandLine;
+	LOG(INFO) << "Starting process with command line: " << commandLine;
 
-	wstring wsWinstaAndDesktop = L"WinSta0\\" + mWindowStationPreparation->GetDesktopName();
 	STARTUPINFO startupInfo;
 	ZeroMemory(&startupInfo, sizeof(STARTUPINFO));
 	startupInfo.cb = sizeof(STARTUPINFO);
-	startupInfo.hStdOutput = mStdoutWrite;
-	startupInfo.hStdError = mStderrWrite;
-	startupInfo.hStdInput = mStdinRead;
+	startupInfo.hStdOutput = *stdoutWriteHandle;
+	startupInfo.hStdError = *stderrWriteHandle;
+	startupInfo.hStdInput = *stdinReadHandle;
 	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
 	startupInfo.wShowWindow = SW_HIDE;
-	startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
+	//startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
+	wstring wsWinstaAndDesktop = L"WinSta0\\" + mWindowStationPreparation->GetDesktopName();
 	startupInfo.lpDesktop = const_cast<LPWSTR>(wsWinstaAndDesktop.c_str());
 
 	PROCESS_INFORMATION processInformation;
-	BOOL status = CreateProcessAsUser(
-		hPrimaryToken,
-		NULL,
-		sCommandLine,
-		NULL,
-		NULL,
-		TRUE,
-		CREATE_NEW_CONSOLE,
-		NULL,
-		NULL,
-		&startupInfo,
-		&processInformation);
+	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
+									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL,
+								  	  NULL, &startupInfo, &processInformation);
 
 	if (!status)
 	{
 		// start failed: return error
-		*success = FALSE;
-		*error = GetLastError();
-		LOG(INFO) << "Starting process failed with error 0x" << std::hex << *error;
-		return S_OK;
+		success = false;
+		error = GetLastError();
+		LOG(INFO) << "Starting process failed with error 0x" << std::hex << error;
+		return;
 	}
 
 	// start succeeded
-	mProcessStarted = true;
-	mProcess = processInformation.hProcess;
-	hThread = processInformation.hThread;
+	mProcessHandle = CHandle(processInformation.hProcess);
 	mProcessId = processInformation.dwProcessId;
-	dwThreadId = processInformation.dwThreadId;
-	LOG(INFO) << "Started process with id " << mProcessId;
+	CloseHandle(processInformation.hThread);
+	mProcessStarted = true;
 
-	// setup stdin pipe writer
-	mStdinWriter = std::make_unique<PipeWriter>(mStdinWrite);
+	LOG(INFO) << "Started process with process id " << std::dec << mProcessId;
 
-	*success = TRUE;
-	*error = 0;
+	// setup pipe readers and writers for stdout, stderr, stdin
+	mStdoutReader = make_shared<PipeReader>(stdoutReadHandle, INPUTDETECT_PEEK);
+	mStderrReader = make_shared<PipeReader>(stderrReadHandle, INPUTDETECT_PEEK);
+	mStdinWriter = make_shared<PipeWriter>(stdinWriteHandle);
 
-	return S_OK;
+	// report success
+	success = true;
+	error = 0;
+}
+
+STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG *error)
+{
+	try
+	{
+		bool bSuccess;
+		DoStartProcess(BStrToWString(commandLine), bSuccess, *error);
+		*success = bSuccess;
+		return S_OK;
+	}
+	catch (runtime_error err)
+	{
+		COM_FAIL(err.what());
+	}
 }
 
 STDMETHODIMP CExec::ReadStdout(BSTR* data, long *dataLength)
 {
-	auto buf = ReadFromPipe(mStdoutRead);
+	auto buf = mStdoutReader->Read();
 	*data = VectorToBstr(buf);
 	*dataLength = (long)buf.size();
 	return S_OK;
@@ -207,7 +178,7 @@ STDMETHODIMP CExec::ReadStdout(BSTR* data, long *dataLength)
 
 STDMETHODIMP CExec::ReadStderr(BSTR* data, long *dataLength)
 {
-	auto buf = ReadFromPipe(mStderrRead);
+	auto buf = mStderrReader->Read();
 	*data = VectorToBstr(buf);
 	*dataLength = (long)buf.size();
 	return S_OK;
@@ -222,13 +193,13 @@ STDMETHODIMP CExec::WriteStdin(BSTR data, long dataLength)
 
 STDMETHODIMP CExec::GetTerminationStatus(BYTE* hasTerminated, LONGLONG* exitCode)
 {
-	DWORD status = WaitForSingleObject(mProcess, 0);
+	DWORD status = WaitForSingleObject(mProcessHandle, 0);
 	if (status == WAIT_OBJECT_0)
 	{
 		// process has terminated
 		*hasTerminated = TRUE;
 		DWORD dwExitCode;
-		if (!GetExitCodeProcess(mProcess, &dwExitCode))
+		if (!GetExitCodeProcess(mProcessHandle, &dwExitCode))
 			return E_FAIL;
 		*exitCode = dwExitCode;
 
@@ -298,7 +269,7 @@ void CExec::KillProcess()
 		return;
 
 	LOG(INFO) << "Terminating process " << mProcessId;
-	if (!TerminateProcess(mProcess, 0))
+	if (!TerminateProcess(mProcessHandle, 0))
 		LOG(WARNING) << "Process termination failed";
 
 	mProcessKilled = true;

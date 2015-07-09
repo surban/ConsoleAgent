@@ -60,6 +60,7 @@ public:
 
 protected:
 
+	void DoStartProcess(wstring commandLine, bool &success, LONGLONG &error);
 	void TimerCallback();
 	void KillProcess();
 	void PrepareWindowStation();
