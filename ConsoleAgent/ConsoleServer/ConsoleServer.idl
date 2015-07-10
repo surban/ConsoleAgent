@@ -36,6 +36,7 @@ interface IPrepareWindowStationComm : IDispatch{
 	[] HRESULT GetData([out] BSTR* desktopName, [out] BSTR* clientSidString);
 	[] HRESULT IsActive([out] BYTE* active);
 	[] HRESULT PreparationCompleted();
+	[] HRESULT GetConsoleEventOrder([out] BYTE *hasOrder, [out] DWORD *processId, [out] ControlEvent *evt);
 };
 
 

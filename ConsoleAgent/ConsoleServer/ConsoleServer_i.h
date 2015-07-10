@@ -95,7 +95,7 @@ extern "C"{
 /* interface __MIDL_itf_ConsoleServer_0000_0000 */
 /* [local] */ 
 
-typedef /* [public][public] */ 
+typedef /* [public][public][public] */ 
 enum __MIDL___MIDL_itf_ConsoleServer_0000_0000_0001
     {
         CONTROLEVENT_C	= 0,
@@ -354,6 +354,11 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
         
         virtual HRESULT STDMETHODCALLTYPE PreparationCompleted( void) = 0;
         
+        virtual HRESULT STDMETHODCALLTYPE GetConsoleEventOrder( 
+            /* [out] */ BYTE *hasOrder,
+            /* [out] */ DWORD *processId,
+            /* [out] */ ControlEvent *evt) = 0;
+        
     };
     
     
@@ -428,6 +433,12 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
         HRESULT ( STDMETHODCALLTYPE *PreparationCompleted )( 
             IPrepareWindowStationComm * This);
         
+        HRESULT ( STDMETHODCALLTYPE *GetConsoleEventOrder )( 
+            IPrepareWindowStationComm * This,
+            /* [out] */ BYTE *hasOrder,
+            /* [out] */ DWORD *processId,
+            /* [out] */ ControlEvent *evt);
+        
         END_INTERFACE
     } IPrepareWindowStationCommVtbl;
 
@@ -475,6 +486,9 @@ EXTERN_C const IID IID_IPrepareWindowStationComm;
 
 #define IPrepareWindowStationComm_PreparationCompleted(This)	\
     ( (This)->lpVtbl -> PreparationCompleted(This) ) 
+
+#define IPrepareWindowStationComm_GetConsoleEventOrder(This,hasOrder,processId,evt)	\
+    ( (This)->lpVtbl -> GetConsoleEventOrder(This,hasOrder,processId,evt) ) 
 
 #endif /* COBJMACROS */
 

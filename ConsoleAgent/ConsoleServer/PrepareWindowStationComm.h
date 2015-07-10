@@ -52,6 +52,7 @@ public:
 	STDMETHOD(GetData)(BSTR* desktopName, BSTR* clientSidString);
 	STDMETHOD(IsActive)(BYTE* active);
 	STDMETHOD(PreparationCompleted)();
+	STDMETHOD(GetConsoleEventOrder)(BYTE *hasOrder, DWORD *processId, ControlEvent *evt);
 
 protected:
 	std::weak_ptr<WindowStationPreparation> mPreparation;

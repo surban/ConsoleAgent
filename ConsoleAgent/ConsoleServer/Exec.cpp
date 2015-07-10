@@ -227,10 +227,20 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 
 STDMETHODIMP CExec::SendControl(ControlEvent evt)
 {
+	ConsoleEventOrder order;
+	order.ProcessId = mProcessId;
+	order.Event = evt;
+	mWindowStationPreparation->OrderConsoleEvent(order);
+
+	return S_OK;
+
+	/*
+	FreeConsole();
+
 	// we must attach to the process' console to send the event
 	if (!AttachConsole(mProcessId))
 	{
-		LOG(WARNING) << "Attach to process " << mProcessId << " console failed";
+		LOG(WARNING) << "Attach to process " << mProcessId << " console failed " << GetLastError();
 		return S_OK;
 	}
 
@@ -257,6 +267,7 @@ STDMETHODIMP CExec::SendControl(ControlEvent evt)
 		LOG(WARNING) << "Detach from console failed";
 
 	return S_OK;
+	*/
 }
 
 STDMETHODIMP CExec::Ping()

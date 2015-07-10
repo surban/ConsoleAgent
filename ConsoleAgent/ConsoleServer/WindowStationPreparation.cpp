@@ -105,6 +105,11 @@ WindowStationPreparation::~WindowStationPreparation()
 	sActivePreparationsByClientAndConsole.erase(mClientConsoleString);
 }
 
+CSid WindowStationPreparation::GetClientSid()
+{
+	return mClientSid;
+}
+
 wstring WindowStationPreparation::GetDesktopName()
 {
 	return L"ConsoleServer_" + SidToString(mClientSid);
@@ -129,6 +134,23 @@ void WindowStationPreparation::PreparationCompleted()
 bool WindowStationPreparation::IsPrepared()
 {
 	return mIsPrepared;
+}
+
+void WindowStationPreparation::OrderConsoleEvent(ConsoleEventOrder order)
+{
+	mConsoleEventOrders.push_back(order);
+}
+
+bool WindowStationPreparation::ReadConsoleEventOrder(ConsoleEventOrder & order)
+{
+	if (!mConsoleEventOrders.empty())
+	{
+		order = mConsoleEventOrders.front();
+		mConsoleEventOrders.pop_front();
+		return true;
+	}
+	else
+		return false;
 }
 
 void WindowStationPreparation::StartPreparation()

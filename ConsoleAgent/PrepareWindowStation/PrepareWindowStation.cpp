@@ -117,6 +117,60 @@ void UnprepareDesktop(wstring desktopName, CSid clientSid, HWINSTA hWinsta, HDES
 	CloseWindowStation(hWinsta);
 }
 
+// do nothing handler for console events
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+	return TRUE;
+}
+
+void ExecuteConsoleEventOrders()
+{
+	BYTE hasOrder;
+	DWORD processId;
+	ConsoleServerLib::ControlEvent evt;
+
+	pComm->GetConsoleEventOrder(&hasOrder, &processId, &evt);
+
+	if (hasOrder)
+	{
+		LOG(INFO) << "PrepareWindowStation.exe: Sending control event to process " << dec << processId;
+
+		// we must attach to the process' console to send the event
+		if (!AttachConsole(processId))
+		{
+			LOG(WARNING) << "PrepareWindowStation.exe: Attach to process " << processId << " console failed " << GetLastError();
+			return;
+		}
+
+		// register our own handler so that we do not get terminated ourselves
+		if (!SetConsoleCtrlHandler(&CtrlHandler, TRUE))
+		{
+			LOG(ERROR) << "PrepareWindowStation.exe: Could not register console control event handler.";
+			return;
+		}
+		
+		// send event	
+		switch (evt)
+		{
+		case ConsoleServerLib::CONTROLEVENT_C:
+			LOG(INFO) << "PrepareWindowStation.exe: Sending CTRL+C event";
+			GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
+			break;
+		case ConsoleServerLib::CONTROLEVENT_BREAK:
+			LOG(INFO) << "PrepareWindowStation.exe: Sending CTRL+BREAK event";
+			GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, 0);
+			break;
+		default:
+			LOG(ERROR) << "PrepareWindowStation.exe: Unknown event to send specified";
+		}
+
+		// detach from process' console
+		if (!FreeConsole())
+			LOG(WARNING) << "PrepareWindowStation.exe: Detach from console failed";
+	}
+
+}
+
 void WaitWhileActive()
 {
 	try
@@ -124,6 +178,8 @@ void WaitWhileActive()
 		BYTE active = TRUE;
 		while (active)
 		{
+			ExecuteConsoleEventOrders();
+
 			pComm->IsActive(&active);
 			this_thread::sleep_for(chrono::milliseconds(100));
 		}		
@@ -135,8 +191,13 @@ void WaitWhileActive()
 }
 
 
-int _tmain(int argc, _TCHAR* argv[])
+
+extern "C" int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+								LPTSTR lpCmdLine, int nShowCmd)
 {
+	int argc;
+	_TCHAR **argv = CommandLineToArgvW(lpCmdLine, &argc);
+
 	// initialize COM
 	CoInitialize(NULL);
 
@@ -144,12 +205,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	ConfigureLogging();
 
 	// handle command line arguments
-	if (argc != 2)
+	if (argc != 1)
 	{
-		std::wcerr << "Usage: " << argv[0] << " <PreparationID>" << std::endl;
+		std::wcerr << "Usage: PrepareWindowStation.exe <PreparationID>" << std::endl;
 		return 1;
 	}
-	wstring preparationId(argv[1]);
+	wstring preparationId(argv[0]);
 
 	try
 	{

@@ -57,4 +57,23 @@ STDMETHODIMP CPrepareWindowStationComm::PreparationCompleted()
 	return S_OK;
 }
 
+STDMETHODIMP CPrepareWindowStationComm::GetConsoleEventOrder(BYTE *hasOrder, DWORD *processId, ControlEvent *evt)
+{
+	auto wsp = mPreparation.lock();
+	if (wsp == nullptr)
+		return E_FAIL;
+
+	ConsoleEventOrder order;
+	if (wsp->ReadConsoleEventOrder(order))
+	{
+		*hasOrder = true;
+		*processId = order.ProcessId;
+		*evt = order.Event;
+	}
+	else
+		*hasOrder = false;
+
+	return S_OK;
+}
+
 
