@@ -81,6 +81,7 @@ void PrepareDesktop(wstring desktopName, CSid clientSid,
 	// add the user to interactive windowstation
 	LOG(INFO) << "PrepareWindowStation: Grant Winsta0 access to " << SidToString(clientSid);
 	GrantAccessOnHandle(hWinsta, clientSid, WINSTA_ALL_ACCESS);
+	GrantAccessOnHandle(hWinsta, clientSid, GENERIC_ALL);
 
 	// try to open desktop
 	hDesk = OpenDesktop(desktopName.c_str(), 0, FALSE, GENERIC_ALL);
