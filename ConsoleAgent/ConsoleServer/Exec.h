@@ -69,6 +69,7 @@ protected:
 	bool mProcessStarted;
 	bool mProcessKilled;
 
+	CHandle mJobHandle;
 	CHandle mProcessHandle;
 	DWORD mProcessId;
 

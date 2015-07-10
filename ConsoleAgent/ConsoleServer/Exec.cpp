@@ -77,6 +77,12 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	if (!(mWindowStationPreparation && mWindowStationPreparation->IsPrepared()))
 		throw runtime_error("Window station is not prepared.");
 
+	// create job object
+	HANDLE hJob = CreateJobObject(NULL, NULL);
+	if (hJob == NULL)
+		throw runtime_error("Could not create job object.");
+	mJobHandle = CHandle(hJob);
+
 	// create pipe for stdout
 	shared_ptr<CHandle> stdoutReadHandle, stdoutWriteHandle;
 	CreateInheritablePipe(stdoutReadHandle, stdoutWriteHandle, false, true);
@@ -120,7 +126,7 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	startupInfo.hStdError = *stderrWriteHandle;
 	startupInfo.hStdInput = *stdinReadHandle;
 	startupInfo.dwFlags |= STARTF_USESTDHANDLES;
-	startupInfo.wShowWindow = SW_HIDE;
+	//startupInfo.wShowWindow = SW_HIDE;
 	//startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	wstring wsWinstaAndDesktop = L"WinSta0\\" + mWindowStationPreparation->GetDesktopName();
 	startupInfo.lpDesktop = const_cast<LPWSTR>(wsWinstaAndDesktop.c_str());
@@ -144,6 +150,10 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	mProcessId = processInformation.dwProcessId;
 	CloseHandle(processInformation.hThread);
 	mProcessStarted = true;
+
+	// attach process to job
+	if (!AssignProcessToJobObject(mJobHandle, mProcessHandle))
+		throw runtime_error("Could not assign process to job object");
 
 	LOG(INFO) << "Started process with process id " << std::dec << mProcessId;
 
@@ -237,9 +247,9 @@ void CExec::KillProcess()
 	if (!mProcessStarted || mProcessKilled)
 		return;
 
-	LOG(INFO) << "Terminating process " << mProcessId;
-	if (!TerminateProcess(mProcessHandle, 0))
-		LOG(WARNING) << "Process termination failed";
+	LOG(INFO) << "Terminating job for process " << mProcessId;
+	if (!TerminateJobObject(mJobHandle, 0))
+		LOG(WARNING) << "Job termination failed";
 
 	mProcessKilled = true;
 }
