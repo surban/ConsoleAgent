@@ -133,8 +133,8 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
-									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL,
-								  	  workingDir.c_str(), &startupInfo, &processInformation);
+									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
+									  NULL, workingDir.c_str(), &startupInfo, &processInformation);
 
 	if (!status)
 	{
