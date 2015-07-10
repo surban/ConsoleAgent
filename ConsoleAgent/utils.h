@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#define ELPP_NO_DEFAULT_LOG_FILE
 #define ELPP_UNICODE
 #include "easylogging++.h"
 
@@ -99,11 +100,12 @@ static wstring GenerateUuidString()
 }
 
 
-static void ConfigureLogging()
+static void ConfigureLogging(bool logToFile=false)
 {
 	el::Configurations logConf;
 	logConf.setToDefault();
-	logConf.set(el::Level::Global, el::ConfigurationType::Filename, "c:\\temp\\ConsoleServer.log");
+	if (logToFile)
+		logConf.set(el::Level::Global, el::ConfigurationType::Filename, "c:\\windows\\logs\\ConsoleAgent.log");
 	el::Loggers::reconfigureAllLoggers(logConf);
 }
 

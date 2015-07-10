@@ -55,7 +55,7 @@ extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstan
 								LPTSTR /*lpCmdLine*/, int nShowCmd)
 {
 	// configure logging
-	ConfigureLogging();
+	ConfigureLogging(true);
 
 	LOG(INFO) << "ConsoleServer startup";
 

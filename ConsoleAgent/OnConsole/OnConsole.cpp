@@ -76,12 +76,12 @@ void SetupRedirection(shared_ptr<PipeReader> &prStdin,
 	DWORD consoleMode;
 	if (GetConsoleMode(*hStdin, &consoleMode))
 	{
-		LOG(INFO) << "OnConsole: stdin is a console";
+		//LOG(INFO) << "OnConsole: stdin is a console";
 		stdinConsole = true;
 	}
 	else
 	{
-		LOG(INFO) << "OnConsole: stdin is redirected";
+		//LOG(INFO) << "OnConsole: stdin is redirected";
 		stdinConsole = false;
 	}
 
