@@ -108,7 +108,7 @@ class PipeReader
 public:
 	PipeReader() = delete;
 
-	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, bool asyncRead, size_t bufferSize=100000)
+	PipeReader(shared_ptr<ATL::CHandle> hPipe, PipeInputDetect inputDetect, bool asyncRead, size_t bufferSize=1000)
 	{
 		mPipe = hPipe;
 		mInputDetect = inputDetect;
@@ -203,7 +203,10 @@ protected:
 		buffer_t buffer(bytesToRead);
 		DWORD bytesRead;		
 		if (!ReadFile(*mPipe, buffer.data(), (DWORD)bytesToRead, &bytesRead, NULL))
-			return empty;		
+		{
+			LOG(ERROR) << "PipeReader: ReadFile error: 0x" << hex << GetLastError();
+			return empty;
+		}
 		buffer.resize(bytesRead);
 
 		return buffer;
