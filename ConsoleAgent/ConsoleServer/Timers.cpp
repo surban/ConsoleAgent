@@ -20,11 +20,14 @@ void DeregisterTimer(void *ref)
 
 VOID CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
 {
+	LOG(INFO) << "TimerProc";
+
 	for (auto &item : RegisteredTimers)
 		item.second();
 }
 
 void StartThreadTimer(unsigned int interval)
 {
+	LOG(INFO) << "Starting timer with interval " << interval << " ms";
 	SetTimer(NULL, 0, interval, &TimerProc);
 }

@@ -1,5 +1,3 @@
-// ConsoleServer.cpp : Implementation of WinMain
-
 
 #include "stdafx.h"
 #include "resource.h"
@@ -9,14 +7,9 @@
 
 using namespace ATL;
 
-/*
-class CConsoleServerModule : public ATL::CAtlExeModuleT< CConsoleServerModule >
-{
-public :
-	DECLARE_LIBID(LIBID_ConsoleServerLib)
-	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_CONSOLESERVER, "{962952B2-E216-40E8-9155-21578AB4B1D8}")
-	};
-*/
+
+INITIALIZE_EASYLOGGINGPP;
+
 
 class CConsoleServerModule : public ATL::CAtlServiceModuleT< CConsoleServerModule, IDS_SERVICENAME >
 {
@@ -38,8 +31,6 @@ public:
 
 CConsoleServerModule _AtlModule;
 
-
-INITIALIZE_EASYLOGGINGPP;
 
 
 extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, 
