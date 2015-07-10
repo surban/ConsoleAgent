@@ -4,6 +4,7 @@
 #include <comutil.h>
 
 #include <iostream>
+#include <vector>
 
 #import <ConsoleServer.tlb>
 
@@ -61,6 +62,32 @@ void WaitForWindowStationPreparation()
 	} while (!prepared);
 }
 
+
+vector<wchar_t> GetEnvironment()
+{
+	LPTCH env = GetEnvironmentStrings();
+	if (env == NULL)
+		throw runtime_error("Could not get environment");
+
+	vector<wchar_t> vEnv;
+	for (size_t pos = 0; pos == 0 || !(env[pos - 1] == 0 && env[pos] == 0); pos++)
+		vEnv.push_back(env[pos]);
+	vEnv.push_back(0);
+
+	FreeEnvironmentStrings(env);
+	return vEnv;
+}
+
+wstring GetCurrentDir()
+{
+	DWORD currentDirLength = GetCurrentDirectory(0, NULL);
+	wchar_t *pCurrentDir = new wchar_t[currentDirLength];
+	if (GetCurrentDirectory(currentDirLength, pCurrentDir) == 0)
+		throw runtime_error("Could not get current directory");
+	wstring currentDir = wstring(pCurrentDir);
+	delete[] pCurrentDir;
+	return currentDir;
+}
 
 void SetupRedirection(shared_ptr<PipeReader> &prStdin, 
 					  shared_ptr<PipeWriter> &pwStdout, 
@@ -140,7 +167,7 @@ bool HandleRedirection(shared_ptr<PipeReader> prStdin,
 int _tmain(int argc, _TCHAR* argv[])
 {
 	// initialize logging
-	ConfigureLogging();
+	ConfigureLogging(true);
 
 	// initialize COM
 	CoInitialize(NULL);
@@ -176,10 +203,18 @@ int _tmain(int argc, _TCHAR* argv[])
 		// wait for preparation of window station
 		WaitForWindowStationPreparation();
 
+		// get environment
+		vector<wchar_t> env = GetEnvironment();
+
+		// get current directory
+		wstring currentDir = GetCurrentDir();
+
 		// start process on console session
 		BYTE success;
 		LONGLONG error;
-		pExec->StartProcess(WStringToBStr(cmdLine), &success, &error);
+		BSTR bsEnv = VectorToBstr(env);
+		pExec->StartProcess(WStringToBStr(cmdLine), WStringToBStr(currentDir), bsEnv, &success, &error);
+		SysFreeString(bsEnv);
 
 		// check if start failed
 		if (!success)

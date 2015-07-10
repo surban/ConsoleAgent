@@ -14,7 +14,7 @@ interface IExec : IDispatch{
 	[] HRESULT Ping();
 	[] HRESULT PrepareWindowStation([out] BYTE* success);
 	[] HRESULT IsWindowStationPrepared([out] BYTE* prepared);
-	[] HRESULT StartProcess([in] BSTR commandLine, [out] BYTE* success, [out] LONGLONG* error);
+	[] HRESULT StartProcess([in] BSTR commandLine, [in] BSTR workingDir, BSTR environment, [out] BYTE* success, [out] LONGLONG* error);
 	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
 	[] HRESULT ReadStdout([out] BSTR* data, [out] long *dataLength);
 	[] HRESULT ReadStderr([out] BSTR* data, [out] long *dataLength);

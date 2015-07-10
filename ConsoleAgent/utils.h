@@ -16,7 +16,7 @@ using namespace std;
 template<typename T>
 static BSTR VectorToBstr(const std::vector<T> &vec)
 {
-	return SysAllocStringByteLen(vec.data(), (UINT)vec.size() * sizeof(T));
+	return SysAllocStringByteLen((LPCSTR)vec.data(), (UINT)vec.size() * sizeof(T));
 }
 
 template<typename T>

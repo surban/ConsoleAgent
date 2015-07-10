@@ -71,7 +71,7 @@ void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> 
 }
 
 
-void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
+void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *environment, bool &success, LONGLONG &error)
 {
 	// check that window station is prepared
 	if (!(mWindowStationPreparation && mWindowStationPreparation->IsPrepared()))
@@ -134,7 +134,7 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
 									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL,
-								  	  NULL, &startupInfo, &processInformation);
+								  	  workingDir.c_str(), &startupInfo, &processInformation);
 
 	if (!status)
 	{
@@ -162,12 +162,12 @@ void CExec::DoStartProcess(wstring commandLine, bool &success, LONGLONG &error)
 	error = 0;
 }
 
-STDMETHODIMP CExec::StartProcess(BSTR commandLine, BYTE *success, LONGLONG *error)
+STDMETHODIMP CExec::StartProcess(BSTR commandLine, BSTR workingDir, BSTR environment, BYTE *success, LONGLONG *error)
 {
 	try
 	{
 		bool bSuccess;
-		DoStartProcess(BStrToWString(commandLine), bSuccess, *error);
+		DoStartProcess(BStrToWString(commandLine), BStrToWString(workingDir), environment, bSuccess, *error);
 		*success = bSuccess;
 		return S_OK;
 	}

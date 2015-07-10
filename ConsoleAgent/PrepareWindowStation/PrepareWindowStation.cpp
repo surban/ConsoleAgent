@@ -203,7 +203,7 @@ extern "C" int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	CoInitialize(NULL);
 
 	// configure logging
-	ConfigureLogging();
+	ConfigureLogging(true);
 
 	// handle command line arguments
 	if (argc != 1)
