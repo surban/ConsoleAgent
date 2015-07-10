@@ -66,8 +66,6 @@ protected:
 	void KillProcess();
 
 protected:
-	const int MAX_PING_TIME = 10;
-
 	bool mProcessStarted;
 	bool mProcessKilled;
 
@@ -78,7 +76,7 @@ protected:
 	shared_ptr<PipeReader> mStderrReader;
 	shared_ptr<PipeWriter> mStdinWriter;
 
-	clock_t mLastPingTime;
+	chrono::steady_clock::time_point mLastPingTime;
 
 	shared_ptr<WindowStationPreparation> mWindowStationPreparation;
 };

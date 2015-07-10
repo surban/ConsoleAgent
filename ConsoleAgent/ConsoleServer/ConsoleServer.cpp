@@ -13,9 +13,10 @@ INITIALIZE_EASYLOGGINGPP;
 
 class CConsoleServerModule : public ATL::CAtlServiceModuleT< CConsoleServerModule, IDS_SERVICENAME >
 {
+	typedef ATL::CAtlServiceModuleT< CConsoleServerModule, IDS_SERVICENAME > super;
 public:
 	DECLARE_LIBID(LIBID_ConsoleServerLib)
-	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_CONSOLESERVER, "{962952B2-E216-40E8-9155-21578AB4B1D8}")
+	DECLARE_REGISTRY_APPID_RESOURCEID(IDR_CONSOLESERVER, "{DB55AB7A-9650-4E6C-8085-73F44D2485C9}")
 
 	HRESULT InitializeSecurity() throw()
 	{
@@ -26,6 +27,23 @@ public:
 
 		return S_OK;
 	}
+
+	HRESULT PreMessageLoop(int nShowCmd) throw()
+	{
+		// register timer
+		StartThreadTimer(1000);
+
+		return super::PreMessageLoop(nShowCmd);
+	}
+	
+	HRESULT PostMessageLoop() throw ()
+	{
+		// deregister time
+		StopThreadTimer();
+
+		return super::PostMessageLoop();
+	}
+
 };
 
 
@@ -40,9 +58,6 @@ extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstan
 	ConfigureLogging();
 
 	LOG(INFO) << "ConsoleServer startup";
-
-	// register timer
-	StartThreadTimer(1000);
 
 	// main loop
 	int retval = _AtlModule.WinMain(nShowCmd);

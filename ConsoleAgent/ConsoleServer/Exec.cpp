@@ -25,7 +25,6 @@ CExec::CExec()
 CExec::~CExec()
 {
 	KillProcess();
-
 	DeregisterTimer(this);
 
 	LOG(INFO) << "CExec destructed";
@@ -33,10 +32,8 @@ CExec::~CExec()
 
 void CExec::TimerCallback()
 {
-	LOG(INFO) << "timer callback for IExec " << this;
-
 	// check if client is alive
-	if ((clock() - mLastPingTime) > MAX_PING_TIME * CLOCKS_PER_SEC && !mProcessKilled)
+	if ((chrono::steady_clock::now() - mLastPingTime) > chrono::seconds(3) && !mProcessKilled)
 	{
 		LOG(WARNING) << "client did not ping -- terminating process";
 		KillProcess();
@@ -219,12 +216,6 @@ STDMETHODIMP CExec::GetTerminationStatus(BYTE* hasTerminated, LONGLONG* exitCode
 		return E_FAIL;
 }
 
-// do nothing handler for console events
-BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
-{
-	return TRUE;
-}
-
 STDMETHODIMP CExec::SendControl(ControlEvent evt)
 {
 	ConsoleEventOrder order;
@@ -233,46 +224,11 @@ STDMETHODIMP CExec::SendControl(ControlEvent evt)
 	mWindowStationPreparation->OrderConsoleEvent(order);
 
 	return S_OK;
-
-	/*
-	FreeConsole();
-
-	// we must attach to the process' console to send the event
-	if (!AttachConsole(mProcessId))
-	{
-		LOG(WARNING) << "Attach to process " << mProcessId << " console failed " << GetLastError();
-		return S_OK;
-	}
-
-	// register our own handler so that we do not get terminated ourselves
-	SetConsoleCtrlHandler(&CtrlHandler, TRUE);
-
-	// send event	
-	switch (evt)
-	{
-	case CONTROLEVENT_C:
-		LOG(INFO) << "Sending CTRL+C event";
-		GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0);
-		break;
-	case CONTROLEVENT_BREAK:
-		LOG(INFO) << "Sending CTRL+BREAK event";
-		GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, 0);
-		break;
-	default:
-		LOG(ERROR) << "Unknown event to send specified";
-	}
-
-	// detach from process' console
-	if (!FreeConsole())
-		LOG(WARNING) << "Detach from console failed";
-
-	return S_OK;
-	*/
 }
 
 STDMETHODIMP CExec::Ping()
 {
-	mLastPingTime = clock();
+	mLastPingTime = chrono::steady_clock::now();
 	return S_OK;
 }
 
@@ -287,7 +243,6 @@ void CExec::KillProcess()
 
 	mProcessKilled = true;
 }
-
 
 STDMETHODIMP CExec::PrepareWindowStation(BYTE *success)
 {
