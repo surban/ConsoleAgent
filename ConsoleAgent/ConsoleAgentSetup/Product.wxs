@@ -22,14 +22,18 @@
       
 			<Component Id="ConsoleServer">
         <File Source="$(var.ConsoleServer.TargetPath)" Vital="yes" >
-          <TypeLib Id="{B6EBFBF7-CD9F-4172-92F8-EE7D12CFC703}" Description="ConsoleServer" Language="0" MajorVersion="1" MinorVersion="0">
+          <TypeLib Id="{B6EBFBF7-CD9F-4172-92F8-EE7D12CFC703}" Description="ConsoleServerLib" Language="0" MajorVersion="1" MinorVersion="0">
             <AppId Id="{DB55AB7A-9650-4E6C-8085-73F44D2485C9}" Description="ConsoleServer" LocalService="ConsoleServer" ServiceParameters="-Service">            
-              <Class Id="{696511A9-45A2-4CFB-834F-CD134A7FFF5A}" Context="LocalServer32" Programmable="yes" Version="1.0" ></Class>
-              <Class Id="{158AA083-89FF-48CD-9123-299FDB200B28}" Context="LocalServer32" Programmable="yes" Version="1.0" ></Class>
+              <Class Id="{696511A9-45A2-4CFB-834F-CD134A7FFF5A}" Description="Exec Class" Context="LocalServer32" Programmable="yes" Version="1.0" />
+              <Class Id="{158AA083-89FF-48CD-9123-299FDB200B28}" Description="PrepareWindowStationComm Class" Context="LocalServer32" Programmable="yes" Version="1.0" />
             </AppId>
+            <Interface Id="{C9ABBC7D-280C-4A8C-B6FE-EC95FD50E44A}" Name="IExec" ProxyStubClassId32="{00020424-0000-0000-C000-000000000046}" />
+            <Interface Id="{D9E61F1B-4A48-4A08-8C71-150DFB6C4748}" Name="IPrepareWindowStationComm" ProxyStubClassId32="{00020424-0000-0000-C000-000000000046}" />
           </TypeLib>        
         </File>
-        <ServiceInstall Id="ConsoleServer_Service" Name="ConsoleServer" DisplayName="Console Agent" Description="Allows execution of processes on the console session from other sessions." Type="ownProcess" Start="demand" ErrorControl="ignore" Vital="yes" />        
+        <ServiceInstall Id="ConsoleServer_Service" Name="ConsoleServer" DisplayName="Console Agent" Description="Allows execution of processes on the console session from other sessions." Type="ownProcess" Start="demand" ErrorControl="ignore" Vital="yes">
+          <ServiceDependency Id="RPCSS"/>
+        </ServiceInstall>
         <ServiceControl Id="ConsoleServer_Service" Name="ConsoleServer" Stop="uninstall" Remove="uninstall" />
         <RegistryValue Root="HKCR" Key="AppID\ConsoleServer.exe" Name="AppID" 
                        Value="{DB55AB7A-9650-4E6C-8085-73F44D2485C9}" Type="string" Action="write" />

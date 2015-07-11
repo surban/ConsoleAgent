@@ -148,7 +148,7 @@
       </Command>
     </CustomBuildStep>
     <PreLinkEvent>
-      <Command>net stop ConsoleServer
+      <Command>REM net stop ConsoleServer
 exit 0
 </Command>
     </PreLinkEvent>

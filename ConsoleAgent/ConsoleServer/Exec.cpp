@@ -274,7 +274,7 @@ STDMETHODIMP CExec::PrepareWindowStation(BYTE *success)
 	}
 	catch (runtime_error err)
 	{
-		return E_FAIL;
+		COM_FAIL(err.what());
 	}
 
 	return S_OK;
