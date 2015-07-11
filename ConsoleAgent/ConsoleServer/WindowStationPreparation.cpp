@@ -16,10 +16,39 @@ void GetConsoleAccessToken(CAccessToken &consoleToken)
 		throw runtime_error("Could not determine console session id.");
 
 	HANDLE hToken;
-	if (!WTSQueryUserToken(dwConsoleSessionId, &hToken))
-		throw runtime_error("Could not query console user token.");
+	if (WTSQueryUserToken(dwConsoleSessionId, &hToken))
+	{
+		// connect to someones desktop session
+		LOG(INFO) << "A user is logged onto the console session";
+		consoleToken.Attach(hToken);
+	}
+	else
+	{
+		if (GetLastError() == ERROR_NO_TOKEN)
+		{
+			// nobody is logged onto the console session
+			LOG(INFO) << "Nobody is logged onto the console session";
 
-	consoleToken.Attach(hToken);
+			// use own token with changed session id
+			CAccessToken myToken;
+			if (!myToken.GetProcessToken(TOKEN_ALL_ACCESS))
+				throw runtime_error("Could not open process token");
+			if (!myToken.CreatePrimaryToken(&consoleToken))
+				throw runtime_error("Could not create primary token from process token");
+
+			// set session id
+			if (!SetTokenInformation(consoleToken.GetHandle(), TokenSessionId, &dwConsoleSessionId, sizeof(DWORD)))
+			{
+				LOG(ERROR) << "SetTokenInformation failed: 0x" << hex << GetLastError();
+				throw runtime_error("Failed to set session on console access token.");
+			}
+		}
+		else
+		{
+			LOG(ERROR) << "WTSQueryUserToken failed: 0x" << hex << GetLastError();
+			throw runtime_error("Could not query console user token.");
+		}
+	}	
 }
 
 wstring ClientConsoleString(CSid clientSid, const CAccessToken &consoleToken)
