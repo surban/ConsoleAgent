@@ -89,10 +89,12 @@ static ATL::CSid ParseSid(wstring sSid)
 static wstring GenerateUuidString()
 {
 	UUID uuid;
-	UuidCreate(&uuid);
+	if (UuidCreate(&uuid) != RPC_S_OK)
+		throw runtime_error("Could not create UUID");
 
 	RPC_WSTR csUuid;
-	UuidToString(&uuid, &csUuid);
+	if (UuidToString(&uuid, &csUuid) != RPC_S_OK)
+		throw runtime_error("Could not convert UUID to string");
 	std::wstring wsUuid(reinterpret_cast<wchar_t *>(csUuid));
 	RpcStringFree(&csUuid);
 
@@ -132,6 +134,8 @@ static ATL::CSecurityDesc GetHandleSecurity(HANDLE handle)
 		else
 			throw runtime_error("Could not get user object security.");
 	}
+	else
+		throw runtime_error("Could not get user object security size.");
 
 	ATL::CSecurityDesc csd(*reinterpret_cast<SECURITY_DESCRIPTOR *>(psd));
 	HeapFree(GetProcessHeap(), 0, psd);
@@ -151,4 +155,14 @@ static wstring LuidToString(LUID luid)
 	wstringstream wss;
 	wss << hex << luid.HighPart << luid.LowPart;
 	return wss.str();
+}
+
+static void DumpEnvironmentStrings(wchar_t *env)
+{
+	LOG(INFO) << "Environment strings:";
+	while (*env)
+	{
+		LOG(INFO) << env;
+		env += lstrlen(env) + 1;
+	}
 }

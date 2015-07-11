@@ -14,11 +14,11 @@ interface IExec : IDispatch{
 	[] HRESULT Ping();
 	[] HRESULT PrepareWindowStation([out] BYTE* success);
 	[] HRESULT IsWindowStationPrepared([out] BYTE* prepared);
-	[] HRESULT StartProcess([in] BSTR commandLine, [in] BSTR workingDir, [in] BSTR environment, [out] BYTE* success, [out] LONGLONG* error);
+	[] HRESULT StartProcess([in] BSTR commandLine, [in] BSTR workingDir, [in] BSTR *environment, [out] BYTE* success, [out] LONGLONG* error);
 	[] HRESULT GetTerminationStatus([out] BYTE* hasTerminated, [out] LONGLONG* exitCode);
 	[] HRESULT ReadStdout([out] BSTR* data, [out] long *dataLength);
 	[] HRESULT ReadStderr([out] BSTR* data, [out] long *dataLength);
-	[] HRESULT WriteStdin([in] BSTR data, [in] long dataLength);
+	[] HRESULT WriteStdin([in] BSTR* data, [in] long dataLength);
 	[] HRESULT SendControl(ControlEvent evt);
 };
 

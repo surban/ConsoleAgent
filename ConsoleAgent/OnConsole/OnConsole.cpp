@@ -136,7 +136,7 @@ bool HandleRedirection(shared_ptr<PipeReader> prStdin,
 	if (!vBuffer.empty())
 	{
 		bsBuffer = VectorToBstr(vBuffer);
-		pExec->WriteStdin(bsBuffer, (long)vBuffer.size());
+		pExec->WriteStdin(&bsBuffer, (long)vBuffer.size());
 		SysFreeString(bsBuffer);
 		hadData = true;
 	}
@@ -213,7 +213,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		BYTE success;
 		LONGLONG error;
 		BSTR bsEnv = VectorToBstr(env);
-		pExec->StartProcess(WStringToBStr(cmdLine), WStringToBStr(currentDir), bsEnv, &success, &error);
+		pExec->StartProcess(WStringToBStr(cmdLine), WStringToBStr(currentDir), &bsEnv, &success, &error);
 		SysFreeString(bsEnv);
 
 		// check if start failed

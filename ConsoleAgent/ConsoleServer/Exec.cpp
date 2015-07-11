@@ -130,11 +130,11 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 	//startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	wstring wsWinstaAndDesktop = L"WinSta0\\" + mWindowStationPreparation->GetDesktopName();
 	startupInfo.lpDesktop = const_cast<LPWSTR>(wsWinstaAndDesktop.c_str());
-
+	
 	PROCESS_INFORMATION processInformation;
 	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
 									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
-									  NULL, workingDir.c_str(), &startupInfo, &processInformation);
+									  environment, workingDir.c_str(), &startupInfo, &processInformation);
 
 	if (!status)
 	{
@@ -162,12 +162,12 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 	error = 0;
 }
 
-STDMETHODIMP CExec::StartProcess(BSTR commandLine, BSTR workingDir, BSTR environment, BYTE *success, LONGLONG *error)
+STDMETHODIMP CExec::StartProcess(BSTR commandLine, BSTR workingDir, BSTR *environment, BYTE *success, LONGLONG *error)
 {
 	try
 	{
 		bool bSuccess;
-		DoStartProcess(BStrToWString(commandLine), BStrToWString(workingDir), environment, bSuccess, *error);
+		DoStartProcess(BStrToWString(commandLine), BStrToWString(workingDir), *environment, bSuccess, *error);
 		*success = bSuccess;
 		return S_OK;
 	}
@@ -193,9 +193,9 @@ STDMETHODIMP CExec::ReadStderr(BSTR* data, long *dataLength)
 	return S_OK;
 }
 
-STDMETHODIMP CExec::WriteStdin(BSTR data, long dataLength)
+STDMETHODIMP CExec::WriteStdin(BSTR* data, long dataLength)
 {
-	auto vData = BstrToVector<char>(data, dataLength);
+	auto vData = BstrToVector<char>(*data, dataLength);
 	mStdinWriter->Write(vData);
 	return S_OK;
 }

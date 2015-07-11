@@ -51,8 +51,8 @@ CConsoleServerModule _AtlModule;
 
 
 
-extern "C" int WINAPI _tWinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, 
-								LPTSTR /*lpCmdLine*/, int nShowCmd)
+extern "C" int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, 
+								LPTSTR lpCmdLine, int nShowCmd)
 {
 	// configure logging
 	ConfigureLogging(true);

@@ -52,11 +52,11 @@ public:
 	STDMETHOD(Ping)();
 	STDMETHOD(PrepareWindowStation(BYTE *success));
 	STDMETHOD(IsWindowStationPrepared)(BYTE* prepared);
-	STDMETHOD(StartProcess)(BSTR commandLine, BSTR workingDir, BSTR environment, BYTE *success, LONGLONG* error);
+	STDMETHOD(StartProcess)(BSTR commandLine, BSTR workingDir, BSTR *environment, BYTE *success, LONGLONG* error);
 	STDMETHOD(GetTerminationStatus)(BYTE* hasTerminated, LONGLONG* exitCode);
 	STDMETHOD(ReadStdout)(BSTR* data, long *dataLength);
 	STDMETHOD(ReadStderr)(BSTR* data, long *dataLength);
-	STDMETHOD(WriteStdin)(BSTR data, long dataLength);
+	STDMETHOD(WriteStdin)(BSTR* data, long dataLength);
 	STDMETHOD(SendControl)(ControlEvent evt);
 
 protected:
