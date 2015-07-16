@@ -117,6 +117,7 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 		throw runtime_error("Failed to set session on client token.");
 
 	// start process
+	LOG(INFO) << "Working directory: " << workingDir;
 	LOG(INFO) << "Starting process with command line: " << commandLine;
 
 	STARTUPINFO startupInfo;
