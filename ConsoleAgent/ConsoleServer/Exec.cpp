@@ -156,8 +156,8 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 
 	retryLaunch:
 	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
-										NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
-										environment, workingDir.c_str(), &startupInfo, &processInformation);
+									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
+									  environment, workingDir.c_str(), &startupInfo, &processInformation);
 
 	if (!status)
 	{

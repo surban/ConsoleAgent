@@ -192,7 +192,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		if (n > 1)
 			cmdLine += L" ";
-		cmdLine += argv[n];
+		cmdLine += wstring(L"\"") + wstring(argv[n]) + wstring(L"\"");
 	}
 
 	try 
