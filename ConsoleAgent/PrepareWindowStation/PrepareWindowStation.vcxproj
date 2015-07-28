@@ -141,9 +141,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ntapi.cpp" />
     <ClCompile Include="PrepareWindowStation.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ntapi.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

@@ -142,6 +142,7 @@ static ATL::CSecurityDesc GetHandleSecurity(HANDLE handle)
 	return csd;
 }
 
+
 static void SetHandleSecurity(HANDLE handle, const ATL::CSecurityDesc &csd)
 {
 	SECURITY_INFORMATION siRequested = DACL_SECURITY_INFORMATION;

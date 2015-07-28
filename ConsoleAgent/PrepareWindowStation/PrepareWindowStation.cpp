@@ -12,6 +12,7 @@
 
 #import <ConsoleServer.tlb>
 #include "utils.h"
+#include "ntapi.h"
 
 using namespace std;
 
@@ -19,6 +20,40 @@ INITIALIZE_EASYLOGGINGPP;
 
 
 ConsoleServerLib::IPrepareWindowStationCommPtr pComm;
+
+
+static ATL::CSecurityDesc GetObjectSecurity(HANDLE handle)
+{
+	SECURITY_INFORMATION siRequested = DACL_SECURITY_INFORMATION;
+	PSECURITY_DESCRIPTOR psd = NULL;
+	DWORD dwSize = 0;
+	DWORD dwSizeNeeded;
+
+	if (NtQuerySecurityObject(handle, siRequested, psd, dwSize, &dwSizeNeeded) == STATUS_BUFFER_TOO_SMALL)
+	{
+		psd = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSizeNeeded);
+		if (psd == NULL)
+			throw runtime_error("Could not allocate memory for security descriptor.");
+		dwSize = dwSizeNeeded;
+
+		if (NtQuerySecurityObject(handle, siRequested, psd, dwSize, &dwSizeNeeded) != STATUS_SUCCESS)
+			throw runtime_error("Could not read kernel object security.");
+	}
+	else
+		throw runtime_error("Could not read kernel object security size.");
+
+	ATL::CSecurityDesc csd(*reinterpret_cast<SECURITY_DESCRIPTOR *>(psd));
+	HeapFree(GetProcessHeap(), 0, psd);
+	return csd;
+}
+
+
+static void SetObjectSecurity(HANDLE handle, const ATL::CSecurityDesc &csd)
+{
+	SECURITY_INFORMATION siRequested = DACL_SECURITY_INFORMATION;
+	if (NtSetSecurityObject(handle, siRequested, (PSECURITY_DESCRIPTOR)csd.GetPSECURITY_DESCRIPTOR()) != STATUS_SUCCESS)
+		throw runtime_error("Could not set kernel object security.");
+}
 
 
 void GrantAccessOnHandle(HANDLE handle, CSid sid, ACCESS_MASK accessMask)
@@ -35,6 +70,20 @@ void GrantAccessOnHandle(HANDLE handle, CSid sid, ACCESS_MASK accessMask)
 }
 
 
+void GrantAccessOnObject(HANDLE handle, CSid sid, ACCESS_MASK accessMask)
+{
+	CSecurityDesc csd = GetObjectSecurity(handle);
+
+	CDacl dacl;
+	if (!csd.GetDacl(&dacl))
+		throw runtime_error("Could not read ACL.");
+	dacl.AddAllowedAce(sid, accessMask);
+	csd.SetDacl(dacl);
+
+	SetObjectSecurity(handle, csd);
+}
+
+
 void RevokeAccessOnHandle(HANDLE handle, CSid sid)
 {
 	CSecurityDesc csd = GetHandleSecurity(handle);
@@ -47,6 +96,21 @@ void RevokeAccessOnHandle(HANDLE handle, CSid sid)
 
 	SetHandleSecurity(handle, csd);
 }
+
+
+void RevokeAccessOnObject(HANDLE handle, CSid sid)
+{
+	CSecurityDesc csd = GetObjectSecurity(handle);
+
+	CDacl dacl;
+	if (!csd.GetDacl(&dacl))
+		throw runtime_error("Could not read ACL.");
+	dacl.RemoveAces(sid);
+	csd.SetDacl(dacl);
+
+	SetObjectSecurity(handle, csd);
+}
+
 
 bool HasSidAceOnHandle(HANDLE handle, CSid sid)
 {
@@ -65,6 +129,41 @@ bool HasSidAceOnHandle(HANDLE handle, CSid sid)
 	}
 	return false;
 }
+
+
+bool HasSidAceOnObject(HANDLE handle, CSid sid)
+{
+	CSecurityDesc csd = GetObjectSecurity(handle);
+
+	CDacl dacl;
+	if (!csd.GetDacl(&dacl))
+		throw runtime_error("Could not read ACL.");
+
+	for (unsigned int i = 0; i < dacl.GetAceCount(); i++)
+	{
+		CSid aceSid;
+		dacl.GetAclEntry(i, &aceSid);
+		if (aceSid == sid)
+			return true;
+	}
+	return false;
+}
+
+
+HANDLE OpenDirectoryObject(const wstring path)
+{
+	UNICODE_STRING usPath;
+	if (RtlUnicodeStringInit(&usPath, path.c_str()) != STATUS_SUCCESS)
+		throw runtime_error("RtlUnicodeStringInit failed");
+
+	OBJECT_ATTRIBUTES objAttrs;
+	HANDLE hDir;
+	InitializeObjectAttributes(&objAttrs, &usPath, OBJ_CASE_INSENSITIVE, NULL, NULL);
+	if (NtOpenDirectoryObject(&hDir, STANDARD_RIGHTS_READ | READ_CONTROL | WRITE_DAC, &objAttrs) != STATUS_SUCCESS)
+		throw runtime_error("NtOpenDirectoryObject failed");
+	return hDir;
+}
+
 
 
 void PrepareDesktop(wstring desktopName, CSid clientSid, 
@@ -100,6 +199,36 @@ void PrepareDesktop(wstring desktopName, CSid clientSid,
 	GrantAccessOnHandle(hDesk, clientSid, GENERIC_ALL);
 }
 
+DWORD GetOurSessionId()
+{
+	DWORD processId = GetCurrentProcessId();
+	DWORD sessionId;
+	if (!ProcessIdToSessionId(processId, &sessionId))
+		throw runtime_error("ProcessIdToSessionId failed");
+	return sessionId;
+}
+
+void PrepareObjectDirectory(CSid clientSid, HANDLE &hObjDirectory, bool &hadObjAce)
+{
+	// build object directory path
+	wstringstream objNameStream;
+	objNameStream << L"\\Sessions\\" << dec << GetOurSessionId() << "\\BaseNamedObjects";
+	wstring objName = objNameStream.str();
+
+	// obtain handle to object directory
+	hObjDirectory = OpenDirectoryObject(objName);
+
+	// check if user already has some ACE on object directory
+	hadObjAce = HasSidAceOnObject(hObjDirectory, clientSid);
+
+	// allow user to create objects in object directory
+	LOG(INFO) << "PrepareWindowStation: Grant " << objName << " access to " << SidToString(clientSid);
+	GrantAccessOnObject(hObjDirectory, clientSid, 
+						DIRECTORY_CREATE_OBJECT | DIRECTORY_CREATE_SUBDIRECTORY |
+						DIRECTORY_QUERY | DIRECTORY_TRAVERSE | READ_CONTROL | GENERIC_READ);
+}
+
+
 void UnprepareDesktop(wstring desktopName, CSid clientSid, HWINSTA hWinsta, HDESK hDesk, bool hadWinstaAce)
 {
 	// revoke user access to desktop
@@ -117,6 +246,21 @@ void UnprepareDesktop(wstring desktopName, CSid clientSid, HWINSTA hWinsta, HDES
 	CloseDesktop(hDesk);
 	CloseWindowStation(hWinsta);
 }
+
+
+void UnprepareObjectDirectory(CSid clientSid, HANDLE hObjDirectory, bool hadObjAce)
+{
+	// reove user access to object directory
+	if (!hadObjAce)
+	{
+		LOG(INFO) << "PrepareWindowStation: Revoke object directory access from " << SidToString(clientSid);
+		RevokeAccessOnObject(hObjDirectory, clientSid);
+	}
+
+	// close handle
+	NtClose(hObjDirectory);
+}
+
 
 // do nothing handler for console events
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
@@ -187,7 +331,7 @@ void WaitWhileActive()
 	}
 	catch (_com_error err)
 	{
-		// if communication with server fail, we assume that session is not active anymore
+		// if communication with server fails, we assume that session is not active anymore
 	}
 }
 
@@ -233,11 +377,19 @@ extern "C" int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		bool hadWinstaAce;
 		PrepareDesktop(desktopName, clientSid, hWinsta, hDesk, hadWinstaAce);
 
+		// prepare object directory
+		HANDLE hObjDirectory;
+		bool hadObjDirectoryAce;
+		PrepareObjectDirectory(clientSid, hObjDirectory, hadObjDirectoryAce);
+
 		// signal that desktop is ready
 		pComm->PreparationCompleted();
 
 		// wait while session is active to keep desktop from being deleted
 		WaitWhileActive();
+
+		// unprepare object directory
+		UnprepareObjectDirectory(clientSid, hObjDirectory, hadObjDirectoryAce);
 
 		// unprepare desktop
 		UnprepareDesktop(desktopName, clientSid, hWinsta, hDesk, hadWinstaAce);
