@@ -349,6 +349,9 @@ extern "C" int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	// configure logging
 	ConfigureLogging(true);
 
+	// import NTDLL functions
+	ImportFunctions();
+
 	// handle command line arguments
 	if (argc != 1)
 	{

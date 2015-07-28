@@ -22,6 +22,7 @@
 #include <comutil.h>
 #include <sddl.h>
 #include <WtsApi32.h>
+#include <ShlObj.h>
 
 #include <string>
 #include <vector>

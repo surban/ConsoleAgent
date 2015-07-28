@@ -71,6 +71,25 @@ void CreateInheritablePipe(shared_ptr<CHandle> &readHandle, shared_ptr<CHandle> 
 }
 
 
+wstring GetKnownFolderPath(REFKNOWNFOLDERID folderId, const CAccessToken &token)
+{
+	PWSTR path;
+	if (SHGetKnownFolderPath(folderId, KF_FLAG_DONT_VERIFY, token.GetHandle(), &path) != S_OK)
+		throw runtime_error("SHGetKnownFolderPath failed");
+	wstring wsPath(path);
+	CoTaskMemFree(path);
+	return wsPath;
+}
+
+wstring GetSystemPath()
+{
+	const size_t bufSize = 255;
+	wchar_t buffer[bufSize];
+	if (GetSystemDirectory(buffer, bufSize) == 0)
+		throw runtime_error("GetSystemDirectory failed");
+	return wstring(buffer);
+}
+
 void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *environment, bool &success, LONGLONG &error)
 {
 	// check that window station is prepared
@@ -133,17 +152,40 @@ void CExec::DoStartProcess(wstring commandLine, wstring workingDir, wchar_t *env
 	startupInfo.lpDesktop = const_cast<LPWSTR>(wsWinstaAndDesktop.c_str());
 	
 	PROCESS_INFORMATION processInformation;
+	bool isRetry = false;
+
+	retryLaunch:
 	BOOL status = CreateProcessAsUser(clientToken.GetHandle(), NULL, const_cast<LPWSTR>(commandLine.c_str()),
-									  NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
-									  environment, workingDir.c_str(), &startupInfo, &processInformation);
+										NULL, NULL, TRUE, CREATE_NEW_CONSOLE | CREATE_UNICODE_ENVIRONMENT, 
+										environment, workingDir.c_str(), &startupInfo, &processInformation);
 
 	if (!status)
 	{
-		// start failed: return error
-		success = false;
 		error = GetLastError();
-		LOG(INFO) << "Starting process failed with error 0x" << std::hex << error;
-		return;
+		if (error == ERROR_DIRECTORY && !isRetry)
+		{
+			// Current directory is invalid. This may happen if user tries to launch OnConsole 
+			// from a mapped network drive. Launch instead in Windows directory.
+			workingDir = GetSystemPath();
+			//workingDir = GetKnownFolderPath(FOLDERID_Documents, impersonationToken);
+			LOG(WARNING) << "Changing working directory to " << workingDir;
+
+			// inject warning message into stderr
+			wstring msg = L"OnConsole: using working directory " + workingDir + L"\r\n";
+			vector<wchar_t> vMsg;
+			copy(msg.begin(), msg.end(), back_inserter(vMsg));
+			mStdoutReader->InjectData(WcharToCharVector(vMsg));
+
+			isRetry = true;
+			goto retryLaunch;
+		}
+		else
+		{
+			// start failed: return error
+			success = false;
+			LOG(INFO) << "Starting process failed with error 0x" << std::hex << error;
+			return;
+		}
 	}
 
 	// start succeeded

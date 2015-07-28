@@ -12,6 +12,18 @@ using namespace std;
 
 typedef vector<char> buffer_t;
 
+
+static vector<char> WcharToCharVector(const vector<wchar_t> &data)
+{
+	vector<char> out;
+	for (wchar_t wc : data)
+	{
+		out.push_back((char)(wc & 0xff));
+	}
+	return out;
+}
+
+
 class PipeWriter
 {
 public:
@@ -142,7 +154,7 @@ public:
 
 	buffer_t Read()
 	{
-		if (mAsyncRead)
+		if (mAsyncRead || !mQueue.empty())
 		{
 			lock_guard<mutex> lck(mQueueMutex);
 			if (mQueue.empty())
@@ -155,6 +167,11 @@ public:
 		{
 			return ReadFromPipe();
 		}
+	}
+
+	void InjectData(const buffer_t &buf)
+	{
+		PutBuffer(buf);
 	}
 
 protected:
